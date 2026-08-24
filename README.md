@@ -102,6 +102,13 @@ ph undo                        # restore the last checkpoint
 ph undo 0002                   # undo is journaled too, so this reverses an undo
 ```
 
+## Security
+
+[SECURITY.md](SECURITY.md) says what is in scope and what each boundary is
+actually worth. [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md) sets out who might
+attack this and what stops them — including the gaps, and one hole that a review
+of the finished code found rather than the design preventing.
+
 ## License
 
 Apache-2.0. See [LICENSE](LICENSE).

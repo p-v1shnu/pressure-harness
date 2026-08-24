@@ -206,6 +206,7 @@ class ConsoleApi:
     # -- activity ----------------------------------------------------------
 
     def activity(self, limit: int = 100, decision: str | None = None) -> list[dict]:
+        limit = max(1, min(int(limit), 500))
         entries = self.runtime.audit.tail(limit * 3)
         rows = []
         for entry in reversed(entries):

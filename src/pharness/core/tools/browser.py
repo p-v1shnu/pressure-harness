@@ -18,9 +18,12 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from urllib.parse import urlparse
+from urllib.request import url2pathname
 
 from pharness.core.cdp import CdpError, CdpSession, list_targets, new_page
 from pharness.core.config import ContextSettings
+from pharness.core.errors import PathJailError
+from pharness.core.policy.path_jail import PathJail
 from pharness.core.text import clamp
 from pharness.core.tools.results import ToolResult
 from pharness.core.workspace import Workspace
@@ -36,8 +39,22 @@ EXTERNAL = (
 )
 
 
+# Schemes the browser may be pointed at. Everything else -- view-source:,
+# chrome:, filesystem: -- either reads local state or exposes the browser's own
+# internals, and none of it is what "open the page you just changed" means.
+ALLOWED_SCHEMES = frozenset({"http", "https", "file", "about", "data"})
+
+
 def _is_local(url: str) -> bool:
-    host = (urlparse(url).hostname or "").lower()
+    """True for an address on this machine, which never needs the allowlist.
+
+    `file://` is deliberately excluded: a local file is not a local *server*,
+    and treating it as one is how the path jail gets bypassed.
+    """
+    parsed = urlparse(url)
+    if parsed.scheme.lower() == "file":
+        return False
+    host = (parsed.hostname or "").lower()
     return host in ("localhost", "127.0.0.1", "::1", "0.0.0.0", "")
 
 
@@ -51,6 +68,8 @@ class BrowserTools:
     data_dir: Path
     port: int = 9222
     allowlist: tuple[str, ...] = ()
+    jail: PathJail | None = None
+    """Without one, `file://` URLs cannot be opened at all."""
     _session: CdpSession | None = field(default=None, repr=False)
 
     # -- connection --------------------------------------------------------
@@ -140,16 +159,46 @@ class BrowserTools:
 
     # -- acting ------------------------------------------------------------
 
+    def check_url(self, url: str) -> str | None:
+        """Why this URL may not be opened, or None.
+
+        Found by reviewing the finished code: `file://` counted as a local
+        address, so the browser could open any file on the machine and report
+        its contents -- everything the path jail exists to prevent, one tool
+        over. Files now face the same jail as read_file does.
+        """
+        parsed = urlparse(url)
+        scheme = parsed.scheme.lower()
+
+        if not scheme:
+            return "give a full URL, including http:// or file://"
+        if scheme not in ALLOWED_SCHEMES:
+            return f"{scheme}: URLs cannot be opened"
+
+        if scheme == "file":
+            if self.jail is None:
+                return "this browser cannot open local files"
+            try:
+                self.jail.check_absolute(self.workspace, Path(url2pathname(parsed.path)))
+            except (PathJailError, ValueError, OSError) as exc:
+                return str(exc)
+            return None
+
+        if scheme in ("about", "data") or _is_local(url):
+            return None
+
+        host = (parsed.hostname or "").lower()
+        if not any(host == entry or host.endswith(f".{entry}") for entry in self.allowlist):
+            return (
+                f"{host or url} is not in this workspace's allowed hosts. "
+                "Addresses on this machine are always allowed."
+            )
+        return None
+
     def navigate(self, url: str, wait_sec: float = 5.0) -> ToolResult:
-        if not _is_local(url) and self.allowlist:
-            host = (urlparse(url).hostname or "").lower()
-            if not any(
-                host == allowed or host.endswith(f".{allowed}") for allowed in self.allowlist
-            ):
-                return ToolResult.failure(
-                    f"{host or url} is not in this workspace's allowed hosts. "
-                    "Local addresses are always allowed."
-                )
+        refusal = self.check_url(url)
+        if refusal is not None:
+            return ToolResult.failure(refusal)
 
         try:
             session = self._connect()

@@ -100,8 +100,12 @@ const TABS = [
 let current = "overview";
 let pendingCount = 0;
 
-const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c => (
-  {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+// Single quotes as well as double: some of these values land inside inline
+// handlers, where a lone apostrophe would end the string early. Every value
+// there is generated or validated today, but escaping both closes the class
+// rather than the instance.
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => (
+  {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 
 async function get(path, params={}) {
   const url = new URL(path, location.origin);

@@ -78,6 +78,31 @@ class PathJail:
         """Protect our own config and audit log: no tool may reach them (PRD 6.1)."""
         return cls(paths, protected_dirs=(paths.config_dir(), paths.data_dir()))
 
+    def check_absolute(self, workspace: Workspace, path: Path) -> Path:
+        """Containment check for a path that is already absolute.
+
+        Exists because not every way of naming a file goes through a relative
+        string: a `file://` URL handed to the browser is an absolute path by
+        the time anyone sees it, and it has to face the same rules or the jail
+        only guards one door.
+        """
+        root = self._paths.resolve(workspace.root)
+        resolved = self._paths.resolve(path)
+
+        if not self._contains(root, resolved):
+            raise PathJailError(f"that file is outside workspace {workspace.alias!r}")
+        for protected in self._protected:
+            if self._contains(protected, resolved):
+                raise PathJailError(
+                    "that path belongs to Pressure Harness itself and is never reachable"
+                )
+
+        relative = resolved.relative_to(root) if resolved != root else Path(".")
+        reason = self.secret_reason(relative)
+        if reason:
+            raise PathJailError(f"refused: {reason}")
+        return resolved
+
     def check(self, workspace: Workspace, raw: str) -> Path:
         """Return the resolved absolute path for `raw`, or raise PathJailError."""
         self._check_shape(raw)

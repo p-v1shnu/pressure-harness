@@ -54,6 +54,8 @@ def browser(tmp_path: Path) -> BrowserTools:
     registry = WorkspaceRegistry.from_config(
         parse_config({"workspace": [{"alias": "p", "path": str(root)}]}), adapters.paths
     )
+    from pharness.core.policy.path_jail import PathJail
+
     tools = BrowserTools(
         workspace=registry.get("p"),
         context=ContextSettings(),
@@ -63,6 +65,7 @@ def browser(tmp_path: Path) -> BrowserTools:
         data_dir=tmp_path / "data",
         port=int(os.environ.get("PHARNESS_TEST_CDP_PORT", "9222")),
         allowlist=("example.com",),
+        jail=PathJail.with_app_dirs(adapters.paths),
     )
     yield tools
     tools.close()
@@ -76,7 +79,9 @@ def browser(tmp_path: Path) -> BrowserTools:
     [
         ("http://localhost:3000/x", True),
         ("http://127.0.0.1:5173", True),
-        ("file:///tmp/x.html", True),
+        # A local file is not a local server. Treating it as one is what let the
+        # browser read anything on the machine.
+        ("file:///tmp/x.html", False),
         ("https://example.com/x", False),
     ],
 )
@@ -195,3 +200,68 @@ def test_a_page_that_did_not_load_is_reported_as_a_failure(running_browser: Brow
     assert not result.ok
     assert "did not load" in result.text
     assert "dev server" in result.text
+
+
+# -- what the browser may be pointed at ----------------------------------------
+#
+# Every case here is a regression: `file://` counted as a local address, so the
+# browser could open any file on the machine and report its contents. The path
+# jail guarded read_file and search, and this went around both.
+
+
+@pytest.fixture
+def jailed(tmp_path: Path, browser: BrowserTools) -> BrowserTools:
+    (browser.workspace.root / ".env").write_text("API_SECRET=value123456\n", encoding="utf-8")
+    (tmp_path / "outside.txt").write_text("not yours\n", encoding="utf-8")
+    return browser
+
+
+def test_a_file_inside_the_workspace_may_be_opened(jailed: BrowserTools):
+    inside = (jailed.workspace.root / "index.html").as_uri()
+    assert jailed.check_url(inside) is None
+
+
+def test_a_file_outside_the_workspace_may_not(jailed: BrowserTools, tmp_path: Path):
+    refusal = jailed.check_url((tmp_path / "outside.txt").as_uri())
+    assert refusal and "outside workspace" in refusal
+
+
+def test_credential_files_are_refused_here_too(jailed: BrowserTools):
+    """The jail's rules, not a second weaker copy of them."""
+    refusal = jailed.check_url((jailed.workspace.root / ".env").as_uri())
+    assert refusal and "secrets" in refusal
+
+
+def test_without_a_jail_no_local_file_can_be_opened(browser: BrowserTools):
+    browser.jail = None
+    refusal = browser.check_url((browser.workspace.root / "index.html").as_uri())
+    assert refusal and "cannot open local files" in refusal
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "view-source:file:///etc/passwd",
+        "chrome://settings",
+        "devtools://devtools/bundled/inspector.html",
+        "filesystem:http://example.com/temporary/x",
+        "javascript:alert(1)",
+    ],
+)
+def test_schemes_that_reach_local_state_are_refused(jailed: BrowserTools, url: str):
+    refusal = jailed.check_url(url)
+    assert refusal and "cannot be opened" in refusal
+
+
+def test_a_bare_string_is_not_a_url(jailed: BrowserTools):
+    assert jailed.check_url("not-a-url") is not None
+
+
+def test_addresses_on_this_machine_need_no_allowlist(jailed: BrowserTools):
+    assert jailed.check_url("http://localhost:3000/") is None
+    assert jailed.check_url("http://127.0.0.1:5173/") is None
+
+
+def test_other_hosts_need_the_allowlist(jailed: BrowserTools):
+    assert jailed.check_url("https://example.com/x") is None  # allowlisted in the fixture
+    assert jailed.check_url("https://evil.test/x") is not None

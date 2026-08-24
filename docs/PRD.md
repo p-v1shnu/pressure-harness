@@ -823,6 +823,29 @@ autostart  = false
 
 ---
 
+## 22b. ผลการตรวจความปลอดภัยหลังเขียนเสร็จ
+
+ตรวจทั้ง codebase หลังจบ v1 โดยไล่ตามพื้นที่โจมตี (ดู [THREAT_MODEL.md](THREAT_MODEL.md))
+สิ่งที่เจอและแก้แล้ว:
+
+| ระดับ | สิ่งที่เจอ | แก้อย่างไร |
+|---|---|---|
+| **สูง** | **`browser navigate file:///...` อ่านไฟล์ได้ทั้งเครื่อง** — `_is_local()` นับ `file://` เป็น local จึงข้าม allowlist และไม่เคยผ่าน path jail เลย พิสูจน์แล้วว่าอ่านไฟล์นอก workspace ได้จริง | ทุก URL ผ่าน `check_url()`; `file://` ต้องผ่าน jail เดียวกับ `read_file`; scheme อย่าง `view-source:`/`chrome:`/`javascript:` ถูกปฏิเสธ |
+| **กลาง-สูง** | **`package.json` ของ repo กำหนดให้ `npm test` ทำอะไรก็ได้** — ตัวสแกนเห็นแค่ 2 คำที่ไม่มีพิษภัย ถ้า `npm test` อยู่ใน allowlist ก็รันทันที | classify **เนื้อของ script** ไม่ใช่ชื่อ task — ทดสอบแล้วว่า `"test": "rm -rf ~"` ถูกปฏิเสธแม้ `npm test` จะ allowlist ไว้ |
+| กลาง | `notify` ส่งข้อความอะไรก็ได้ขึ้น desktop notification โดยไม่บอกที่มา = ช่องหลอกขอ pairing code | ขึ้นต้นด้วย "From the assistant:" เสมอ — ข้อความของโมเดลต้องไม่ถูกเข้าใจผิดว่าเป็นของซอฟต์แวร์เอง |
+| ต่ำ | `esc()` ในคอนโซลไม่ escape `'` ซึ่งค่าบางตัวไปอยู่ใน inline handler | escape `'` ด้วย — ปิดทั้งคลาส ไม่ใช่ปิดเฉพาะเคส |
+| ต่ำ | `activity(limit)` ไม่จำกัดเพดาน | clamp ที่ 500 |
+
+**ตรวจแล้วไม่พบปัญหา:** OAuth client_id เป็น uuid ที่ server สร้าง (ไม่มี injection),
+payload hash ครอบทุก tool ที่รับ input อันตราย, `git add` ปฏิเสธ path ที่ขึ้นต้นด้วย `-`,
+`screenshot` ตัด directory ออกจากชื่อไฟล์, console `_coerce` ส่งได้เฉพาะ parameter ที่ประกาศไว้
+
+**ความเสี่ยงที่ยอมรับและบันทึกไว้** (ดู THREAT_MODEL §Known gaps): DNS rebinding
+ระหว่างเช็คกับต่อจริง, TOCTOU ระหว่าง resolve path กับเปิดไฟล์, และการล็อก pairing code
+ที่ทำให้เจ้าของถูก DoS ได้ (แก้ด้วย `ph auth rotate`)
+
+---
+
 ## 23. ที่มาของชื่อ และการใช้คำว่า "harness"
 
 บันทึกไว้เพื่อให้เอกสาร/README/หน้าเว็บใช้คำให้ตรงกัน และไม่อธิบายตัวเองผิดความหมาย

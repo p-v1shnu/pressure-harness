@@ -389,10 +389,11 @@ def build_server(
         if resolved is None:
             return f"no {op} command is defined for {chosen.alias}"
 
-        # The resolved command is what gets classified, not the task name: a
-        # package.json script can contain anything (PRD 8.3).
+        # What gets classified is what will actually run, not the task name.
+        # For a package.json script that means the script's own text, because
+        # the repository -- not the user -- decides what `npm test` does.
         argv, _ = resolved
-        command_line = " ".join(argv)
+        command_line = tools.script_body(op) or " ".join(argv)
         return guarded(
             ctx,
             "project",
@@ -551,7 +552,10 @@ def build_server(
     )
     @reported
     def notify_tool(ctx: Context, title: str, body: str = "") -> str:
-        runtime.queue.notifier.notify(title[:120], body[:500])
+        # Labelled as coming from the assistant. An unlabelled notification is a
+        # convincing way to ask someone for a pairing code, and the model's text
+        # must never be mistakable for the software's own.
+        runtime.queue.notifier.notify(f"From the assistant: {title[:100]}", body[:500])
         return "notification sent"
 
     @server.tool(

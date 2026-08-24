@@ -90,6 +90,18 @@ class ProjectTools:
 
         return None
 
+    def script_body(self, task: str) -> str | None:
+        """The command a package.json script would really run, if any.
+
+        Judging `npm test` tells you nothing: npm hands the script to a shell,
+        and the script is whatever the repository says it is. A cloned project
+        could define `"test": "rm -rf ~"` and every check upstream would see two
+        harmless words. So the script's own text is what gets classified.
+        """
+        if self.workspace.config.scripts.get(task):
+            return None  # the user configured this one themselves
+        return self.package_scripts().get(task)
+
     def describe(self) -> ToolResult:
         manager = self.package_manager()
         lines = [f"workspace: {self.workspace.alias}", f"package manager: {manager or 'none'}"]

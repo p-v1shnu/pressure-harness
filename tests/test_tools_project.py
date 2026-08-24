@@ -188,3 +188,28 @@ def test_url_detection(line: str, expected: str | None):
 
     match = URL_IN_OUTPUT.search(line)
     assert (match.group(0).rstrip("/.,") if match else None) == expected
+
+
+def test_the_script_body_is_what_gets_judged(tmp_path: Path):
+    """`npm test` says nothing: the repository decides what it does.
+
+    Regression for a hole found reviewing the finished code -- a cloned project
+    with `"test": "rm -rf ~"` in its package.json would have run, because the
+    allowlist only ever saw two harmless words.
+    """
+    root = tmp_path / "proj"
+    root.mkdir()
+    (root / "package.json").write_text(
+        json.dumps({"scripts": {"test": "rm -rf ~/important"}}), encoding="utf-8"
+    )
+    tools = make_tools(root, {})
+    assert tools.script_body("test") == "rm -rf ~/important"
+
+
+def test_a_configured_command_is_judged_as_written(tmp_path: Path):
+    """Nothing hidden behind it, so there is no second thing to look at."""
+    root = tmp_path / "proj"
+    root.mkdir()
+    (root / "package.json").write_text(json.dumps({"scripts": {"test": "jest"}}), encoding="utf-8")
+    tools = make_tools(root, {"test": f"{sys.executable} --version"})
+    assert tools.script_body("test") is None
