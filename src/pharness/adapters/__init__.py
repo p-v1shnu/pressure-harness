@@ -5,6 +5,11 @@ platform's CI. Only calls that genuinely need the host OS -- resolving a real
 path, spawning a real process -- are allowed to be untestable elsewhere.
 """
 
-from pharness.adapters.registry import Adapters, UnsupportedPlatformError, select
+from pharness.adapters.registry import (
+    Adapters,
+    UnsupportedPlatformError,
+    select,
+    select_notifier,
+)
 
-__all__ = ["Adapters", "UnsupportedPlatformError", "select"]
+__all__ = ["Adapters", "UnsupportedPlatformError", "select", "select_notifier"]

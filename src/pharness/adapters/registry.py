@@ -41,6 +41,26 @@ _CORE_CAPABILITIES = frozenset(
 )
 
 
+def select_notifier(prefer_window: bool = True):
+    """Pick the best way to ask the user on this machine.
+
+    A window first, because the prompt has to appear whether or not a console
+    is open (PRD 10.7). Falling back to the console keeps the CLI usable, and
+    the null notifier -- which refuses everything -- is what an unattended
+    machine gets, which is the correct answer there.
+    """
+    from pharness.adapters.shared.notifier import ConsoleNotifier, NullNotifier
+
+    if prefer_window:
+        from pharness.adapters.shared.notifier_tk import TkNotifier, tk_available
+
+        if tk_available():
+            return TkNotifier()
+
+    console = ConsoleNotifier()
+    return console if console.interactive else NullNotifier()
+
+
 def select(platform: str | None = None) -> Adapters:
     key = platform or sys.platform
 

@@ -23,7 +23,8 @@ Not usable yet. In progress, milestone by milestone:
 | M1 | core: ports, config, workspaces, path jail, policy engine, audit log | **done** |
 | M2 | file tools: read, search, write, patch, journal and undo | **done** |
 | M3 | git, project runners, process manager, environment allowlist | **done** |
-| M4+ | approval queue and native prompt, console UI, browser, transport | not started |
+| M4 | shell tool, approval queue, gateway, Tk prompt | code done; [the window itself is unverified](docs/MANUAL-CHECKS.md) |
+| M5+ | console UI, browser, transport | not started |
 
 Read [docs/PRD.md](docs/PRD.md) first — it carries the design, the threat
 reasoning, and the milestone plan.

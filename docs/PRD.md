@@ -366,6 +366,15 @@ ChatGPT ยอมให้ตั้ง connector แบบ *no authentication* �
 - **ต้องเป็นหน้าต่าง native แยกจากคอนโซล** always-on-top เด้งได้แม้ปิดคอนโซลไปแล้ว
 - มี global hotkey เรียกหน้าต่างคิวขึ้นมาได้ทันที
 
+**สิ่งที่ลงมือทำใน M4**
+
+- ทุก tool call เดินผ่าน **gateway** เส้นเดียว: `ตัดสิน → ถาม → รัน → บันทึก`
+  ไม่มีทางอื่นไปถึง tool ได้ ซึ่งเป็นสิ่งที่ทำให้ policy engine เป็น *ตัวควบคุม* ไม่ใช่ *คำแนะนำ*
+- **notifier ที่ถามไม่ได้ = ปฏิเสธทันที ไม่ใช่รอจนหมดเวลา** — เครื่องที่ไม่มีคนเฝ้า
+  ควรได้คำตอบ "ไม่" เดี๋ยวนั้น ไม่ใช่ค้าง 2 นาทีแล้วค่อยไม่
+- ลำดับ notifier: หน้าต่าง Tk → console (ถ้า stdin เป็น TTY จริง) → null (ปฏิเสธทุกอย่าง)
+- กดปุ่ม X ปิดหน้าต่าง = ปฏิเสธ ไม่ใช่ยกเลิกคำถาม
+
 **เป้าหมายเชิงตัวเลข: ≥95% ของ tool call ต้องผ่านอัตโนมัติ**
 ถ้าถามบ่อยกว่านี้ ผู้ใช้จะกด Allow รัวโดยไม่อ่าน ซึ่งแย่กว่าไม่มีระบบเลย
 
@@ -697,7 +706,7 @@ autostart  = false
 | M1 — Core ✅ | ports layer, config, workspace, path jail, policy engine, audit log, `ph` CLI + CI 3 OS | **เสร็จแล้ว** — 200 tests, core coverage 91%, contract test ต่อ port, fuzz test, import-linter บังคับเส้นแบ่ง OS |
 | M2 — Files ✅ | read/search/write/apply_patch + journal + undo + `ph undo`/`ph checkpoints` | **เสร็จแล้ว** — 264 tests, core coverage 92%; patch engine เขียนเอง (ตรวจ context, ทนเลขบรรทัดคลาด, atomic ข้ามไฟล์), รักษา CRLF/encoding, undo ย้อนได้เอง |
 | M3 — Dev loop ✅ | git, project runners, process manager, `ProcessPort` ทั้ง Windows/POSIX, env allowlist | **เสร็จแล้ว** — 318 tests, core coverage 92%; ฆ่า process ทั้งต้นไม้ได้จริง (มีเทสต์ยืนยันว่า grandchild ตายด้วย) |
-| M4 — Exec + Approval | shell + ตัวสแกนคำสั่ง + คิวอนุมัติ + หน้าต่าง native | คำสั่งอันตรายถูกถาม/ปฏิเสธจริง |
+| M4 — Exec + Approval ⚠️ | shell tool, คิวอนุมัติ, gateway (decide→ask→run→audit), หน้าต่าง Tk, console notifier | **โค้ดเสร็จ 348 tests** แต่ **หน้าต่าง Tk ยังไม่ถูกยืนยันบนเครื่องจริง** (คอนเทนเนอร์ไม่มี display) → ดู [MANUAL-CHECKS.md](MANUAL-CHECKS.md) §1 |
 | M5 — Console UI | การเชื่อมต่อ → โปรเจกต์ → การอนุญาต → กิจกรรม | ตั้งค่าได้โดยไม่แตะไฟล์ config |
 | M6 — Browser | CDP: navigate/click/console/screenshot + web_fetch | ตรวจงานตัวเองได้ (§13) |
 | M7 — Transport | Streamable HTTP + OAuth + tunnel manager + Doctor | ต่อจาก ChatGPT web ได้ |
