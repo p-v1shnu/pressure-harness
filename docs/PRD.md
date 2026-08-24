@@ -1,24 +1,25 @@
-# PRD — Anvil
+# PRD — Pressure Harness
 
-**Local coding agent bridge สำหรับ ChatGPT**
+**Local coding agent harness สำหรับ ChatGPT**
 
 | | |
 |---|---|
 | เวอร์ชันเอกสาร | 0.1 (draft) |
 | สถานะ | รออนุมัติ — ยังไม่เริ่มเขียนโค้ด |
 | วันที่ | 2026-08-24 |
-| ชื่อโครงการ | `Anvil` (ชื่อชั่วคราว — ดู §17 เรื่องข้อควรระวังการตั้งชื่อ) |
+| ชื่อโครงการ | **Pressure Harness** (ยืนยันแล้ว) |
+| tagline | ควบคุม AI ให้เขียนโค้ดบนเครื่องคุณได้ โดยที่คุณยังถือบังเหียน<br>*Local coding agent harness for ChatGPT — full reach, on your leash* |
 | ขอบเขตเอกสารนี้ | v1 = Windows + scope B (dev tools + browser) |
 
 ---
 
 ## 1. บทสรุป
 
-Anvil คือโปรแกรมที่ติดตั้งบนเครื่องผู้ใช้ ทำหน้าที่เป็น **MCP server** ที่เปิดให้ ChatGPT
+Pressure Harness คือโปรแกรมที่ติดตั้งบนเครื่องผู้ใช้ ทำหน้าที่เป็น **MCP server** ที่เปิดให้ ChatGPT
 เรียกใช้ความสามารถบนเครื่องได้ — อ่าน/แก้โค้ด, รัน test, คุม git, สั่ง dev server,
 และคุม Chrome ผ่าน CDP เพื่อตรวจผลงานที่เพิ่งแก้ไป
 
-ผู้ใช้ยังคงพิมพ์คุยใน ChatGPT ตามปกติ (เว็บ หรือ desktop app) — Anvil **ไม่มีหน้าจอแชท**
+ผู้ใช้ยังคงพิมพ์คุยใน ChatGPT ตามปกติ (เว็บ หรือ desktop app) — Pressure Harness **ไม่มีหน้าจอแชท**
 มีเพียงหน้าคอนโซลสำหรับควบคุมสิทธิ์ ดูกิจกรรม และย้อนการเปลี่ยนแปลง
 
 ผลลัพธ์คือได้ประสบการณ์ใกล้เคียง Codex CLI / Claude Code แต่ใช้ **โควตาแชทของบัญชี ChatGPT
@@ -41,7 +42,7 @@ ChatGPT รันบน cloud จึงไม่มี "มือ" — อ่า
 
 มีผู้ใช้ประกอบเครื่องมือลักษณะนี้ขึ้นเองและแชร์ในวงกว้าง (ดู §18 การประเมินของอ้างอิง)
 แต่เท่าที่ตรวจสอบ ของที่มีอยู่ยัง **ขาดระบบสิทธิ์และการขออนุมัติโดยสิ้นเชิง**
-ซึ่งเป็นช่องว่างที่ Anvil จะเข้าไปแทนที่
+ซึ่งเป็นช่องว่างที่ Pressure Harness จะเข้าไปแทนที่
 
 ---
 
@@ -86,7 +87,7 @@ ChatGPT รันบน cloud จึงไม่มี "มือ" — อ่า
 ## 5. ผู้ใช้เป้าหมาย
 
 - **P1 — นักพัฒนาที่จ่ายค่า ChatGPT อยู่แล้ว** ต้องการ agent ช่วยเขียนโค้ดโดยไม่จ่ายเพิ่ม (ผู้ใช้หลัก)
-- **P2 — ผู้รับแจกโปรแกรม** ไม่ได้เขียน Anvil เอง ตั้งค่าไม่เป็น ต้องการติดตั้งแล้วใช้ได้ใน 10 นาที
+- **P2 — ผู้รับแจกโปรแกรม** ไม่ได้เขียน Pressure Harness เอง ตั้งค่าไม่เป็น ต้องการติดตั้งแล้วใช้ได้ใน 10 นาที
 
 ### 5.1 User stories
 
@@ -116,7 +117,7 @@ ChatGPT รันบน cloud จึงไม่มี "มือ" — อ่า
       └──────────┬──────────┘
                  ▼
  ┌──────────────────────────────────────────┐
- │  Anvil (เครื่องผู้ใช้)                    │
+ │  Pressure Harness (เครื่องผู้ใช้)         │
  │                                          │
  │  transport  →  policy engine  →  tools   │
  │                     ↓                    │
@@ -134,7 +135,7 @@ ChatGPT รันบน cloud จึงไม่มี "มือ" — อ่า
 ### 6.1 หลักการออกแบบ 5 ข้อ
 
 1. **Policy อยู่ระหว่าง transport กับ tool เสมอ** — ไม่มี tool ไหนถูกเรียกโดยไม่ผ่านตัวตัดสิน
-2. **AI แก้กฎที่คุมตัวเองไม่ได้** — ไม่มี tool ใดเข้าถึง config ของ Anvil
+2. **AI แก้กฎที่คุมตัวเองไม่ได้** — ไม่มี tool ใดเข้าถึง config ของ Pressure Harness
 3. **อนุมัติที่ payload ไม่ใช่ที่คำบรรยาย** — ดู §10.1
 4. **Undo สำคัญกว่าการห้าม** — กฎมีรูรั่วเสมอ ตาข่ายต้องมี
 5. **core ไม่รู้จัก OS** — ดู §14
@@ -155,7 +156,7 @@ ChatGPT รันบน cloud จึงไม่มี "มือ" — อ่า
 **v1 รองรับทั้งสอง** โดยใช้ tool layer ชุดเดียวกัน ต่างกันแค่ entrypoint
 
 - โปรโตคอลที่รองรับฝั่ง HTTP: **Streamable HTTP** (หลัก) และ SSE (สำรอง)
-- Anvil เป็นผู้จัดการ tunnel เอง (start/stop/สถานะ อยู่ในแอป) ไม่ให้สคริปต์ภายนอกคุม
+- Pressure Harness เป็นผู้จัดการ tunnel เอง (start/stop/สถานะ อยู่ในแอป) ไม่ให้สคริปต์ภายนอกคุม
 - ค่าเริ่มต้น bind `127.0.0.1` เท่านั้น ไม่ bind `0.0.0.0` ไม่ว่ากรณีใด
 
 ---
@@ -216,7 +217,7 @@ AI **เพิ่ม workspace ใหม่เองไม่ได้** ขอ 
 2. เด้งฟอร์มตั้ง alias + สิทธิ์ (อ่าน / เขียน / รันคำสั่ง / git push)
 3. **เตือนถ้าเลือกกว้างเกินไป** — root ของไดรฟ์, `C:\Users\<user>`, `Desktop`, `Documents`
    → แสดงคำเตือนชัดเจนและต้องกดยืนยันซ้ำ
-4. ทางเลือกสำหรับผู้ใช้ขั้นสูง: `anvil workspace add <path> --alias <name> [--read-only]`
+4. ทางเลือกสำหรับผู้ใช้ขั้นสูง: `ph workspace add <path> --alias <name> [--read-only]`
 
 ### 9.3 หลายบทสนทนาพร้อมกัน
 
@@ -283,12 +284,12 @@ active workspace ผูกกับ **session** ไม่ใช่ตัวแ�
 
 - path นอก workspace, `..` หลุดออก, symlink/junction ชี้ออกนอก (ตรวจหลัง `realpath`)
 - ไฟล์ลับ: `.env*`, `~/.ssh`, `~/.aws`, `~/.config/gh`, `.git/config`, โปรไฟล์เบราว์เซอร์
-- **config และ audit log ของ Anvil เอง**
+- **config และ audit log ของ Pressure Harness เอง**
 - คำสั่งทำลาย: `rm`, `del`, `rmdir`, `Remove-Item`, `format`, `mkfs`, `diskpart`,
   `truncate`, redirect `>` ทับไฟล์ที่มีอยู่
 - ดาวน์โหลดมารันทันที: `curl … | sh`, `iwr … | iex`, `Invoke-Expression`
 - `git push --force`, `git branch -D`, `git reset --hard` บน branch หลัก
-- คำสั่งที่ปิดกลไกป้องกันของ Anvil เอง
+- คำสั่งที่ปิดกลไกป้องกันของ Pressure Harness เอง
 
 **v1 ไม่มี tool ลบไฟล์เลย** — ตรงตามข้อกำหนด "เพิ่ม-อัปเดต-แก้ไขได้ ยกเว้นลบ"
 แต่บังคับที่ชั้นโค้ด ไม่ใช่ที่ prompt
@@ -320,7 +321,7 @@ active workspace ผูกกับ **session** ไม่ใช่ตัวแ�
 
 ### 10.6 การยืนยันตัวตนของ transport HTTPS
 
-ChatGPT ยอมให้ตั้ง connector แบบ *no authentication* ได้ — **Anvil ต้องไม่รองรับโหมดนั้น**
+ChatGPT ยอมให้ตั้ง connector แบบ *no authentication* ได้ — **Pressure Harness ต้องไม่รองรับโหมดนั้น**
 เพราะใครได้ tunnel URL ไปก็ยึดเครื่องได้
 
 - ใช้ OAuth 2.1 (authorization code + PKCE) เป็นหลัก; รองรับ dynamic client registration
@@ -331,7 +332,7 @@ ChatGPT ยอมให้ตั้ง connector แบบ *no authentication* �
 ### 10.7 หน้าต่างขออนุมัติ
 
 ```
-┌─ Anvil ต้องการอนุญาต ──────────────────── 1:42 ─┐
+┌─ Pressure Harness ขออนุญาต ───────────── 1:42 ─┐
 │ โปรเจกต์: shop      tool: shell      tier: T3   │
 │ เหตุผล: คำสั่งไม่อยู่ใน allowlist                │
 │                                                  │
@@ -360,9 +361,9 @@ ChatGPT ยอมให้ตั้ง connector แบบ *no authentication* �
 
 การ "เขียนทับ" ทำข้อมูลหายได้พอๆ กับการลบ ดังนั้น:
 
-- ก่อนแก้ทุกครั้ง เก็บไฟล์เดิมลง journal (`<workspace>/.anvil/journal/`)
+- ก่อนแก้ทุกครั้ง เก็บไฟล์เดิมลง journal (`<workspace>/.pharness/journal/`)
 - ทำ **git checkpoint** เงียบๆ (shadow ref ไม่รบกวน branch ผู้ใช้) ก่อนแก้เป็นชุด
-- `anvil undo` และปุ่มย้อนใน UI ย้อนได้ทีละ checkpoint
+- `ph undo` และปุ่มย้อนใน UI ย้อนได้ทีละ checkpoint
 - journal มีนโยบายหมดอายุ (ค่าเริ่มต้น 14 วัน / 500 MB) และอยู่ใน `.gitignore` เสมอ
 
 ### 10.9 Audit log
@@ -407,7 +408,7 @@ ChatGPT ยอมให้ตั้ง connector แบบ *no authentication* �
 tray เป็นเพียงทางเข้า
 
 **หลักการ: ทุกอย่างที่ AI ทำ ผู้ใช้ต้องเห็นได้ หยุดได้ และย้อนได้**
-Anvil เป็น *ห้องควบคุม* ไม่ใช่โปรแกรมแชท
+Pressure Harness เป็น *ห้องควบคุม* ไม่ใช่โปรแกรมแชท
 
 ### 12.1 หน้าจอ
 
@@ -518,7 +519,7 @@ tool registry ต้องสร้าง **ตอน runtime** จาก capabi
 | path | drive letter, `CON`/`NUL`, junction | ไม่มี drive letter, symlink/firmlink | 🟡 |
 | หน้าต่างอนุมัติ / tray | Win32, pystray | NSWindow, menu bar (main thread) | 🟡 |
 | เปิดตอนบูต | Registry Run / Task Scheduler | LaunchAgent plist | 🟢 |
-| ที่เก็บ config | `%APPDATA%\Anvil` | `~/Library/Application Support/Anvil` | 🟢 |
+| ที่เก็บ config | `%APPDATA%\PressureHarness` | `~/Library/Application Support/PressureHarness` | 🟢 |
 | การแพ็ก/เซ็น | PyInstaller (+cert ถ้ามี) | .app + codesign + **notarize** | 🔴 ต้นทุน/ขั้นตอน |
 | สิทธิ์ระบบ | ไม่ต้องขอ | TCC: Screen Recording / Accessibility / Full Disk Access | 🔴 กระทบ Phase 2 |
 
@@ -541,7 +542,7 @@ AppleScript / Accessibility API ซึ่งถือว่า *เขียน�
 
 ## 15. Config
 
-ที่อยู่: `%APPDATA%\Anvil\config.toml` (Windows) — **AI เข้าถึงไม่ได้ (T5)**
+ที่อยู่: `%APPDATA%\PressureHarness\config.toml` (Windows) — **AI เข้าถึงไม่ได้ (T5)**
 แก้ได้จาก UI / CLI / แก้ไฟล์เอง เท่านั้น
 
 ```toml
@@ -615,8 +616,10 @@ autostart  = false
 - **ห้ามมี auto-updater ที่รันโค้ดที่ดาวน์โหลดมาโดยไม่ตรวจลายเซ็น** —
   v1 ใช้ "แจ้งเตือนว่ามีเวอร์ชันใหม่ + ให้ผู้ใช้อัปเดตเอง"
 - ต้องมี `SECURITY.md` (ช่องทางรายงานช่องโหว่), `THREAT_MODEL.md`, license (แนะนำ Apache-2.0)
-- **ข้อควรระวังเรื่องชื่อ** — ห้ามใช้ชื่อที่ทำให้เข้าใจว่าเป็นผลิตภัณฑ์ของ OpenAI/Anthropic
-  ใช้คำว่า "for ChatGPT" ได้ แต่ห้ามเอา ChatGPT/Codex/Claude ไปเป็นส่วนหนึ่งของชื่อผลิตภัณฑ์
+- **ชื่อผลิตภัณฑ์** — `Pressure Harness` ไม่ชนเครื่องหมายการค้าใคร ใช้ "for ChatGPT"
+  ต่อท้ายได้ แต่ห้ามเอา ChatGPT/Codex/Claude ไปเป็นส่วนหนึ่งของชื่อ (ดู §23 ที่มาของชื่อ)
+- **ต้องมี tagline คู่ชื่อเสมอ** — คำว่า "pressure" ทำให้คนในวงการเดาไปทาง load/stress testing
+  ก่อนเป็นอันดับแรก tagline จึงต้องอยู่คู่ชื่อในทุกที่ที่แนะนำตัว (README, เว็บ, โพสต์)
 - ปุ่ม **export diagnostic bundle** (ผ่าน redaction แล้ว) เพื่อลดภาระซัพพอร์ต
 
 ---
@@ -649,7 +652,7 @@ autostart  = false
 | `powershell.exe -NoProfile -Command npm run lint; if (...)` | ยืนยันว่าช่องหนี interpreter เกิดขึ้นจริงในการใช้งานปกติ (§10.4) |
 | tunnel ถูก start จากสคริปต์ภายนอก | แอปคุมสถานะตัวเองไม่ได้ |
 
-**สรุป:** ของเขาเป็น *หน้าต่างเฝ้าดู* — Anvil ต้องเป็น *หน้าต่างควบคุม*
+**สรุป:** ของเขาเป็น *หน้าต่างเฝ้าดู* — Pressure Harness ต้องเป็น *หน้าต่างควบคุม*
 ความต่างคือหยุด ปฏิเสธ และย้อนได้จริง
 
 ---
@@ -710,9 +713,47 @@ autostart  = false
 ## 22. ภาคผนวก — คำที่ใช้ในเอกสาร
 
 - **MCP** — Model Context Protocol มาตรฐานให้ AI เรียกใช้เครื่องมือภายนอก
-- **MCP server** — โปรแกรมที่ *ให้บริการ* tool (ในที่นี้คือ Anvil บนเครื่องผู้ใช้ ไม่ใช่เซิร์ฟเวอร์ในดาต้าเซ็นเตอร์)
+- **MCP server** — โปรแกรมที่ *ให้บริการ* tool (ในที่นี้คือ Pressure Harness บนเครื่องผู้ใช้ ไม่ใช่เซิร์ฟเวอร์ในดาต้าเซ็นเตอร์)
 - **stdio / Streamable HTTP** — ช่องทางที่ MCP client คุยกับ server
 - **CDP** — Chrome DevTools Protocol โปรโตคอลเดียวกับที่ DevTools ใช้
 - **tier (T0-T5)** — ระดับความเสี่ยงของการกระทำ ดู §10.3
-- **checkpoint** — จุดย้อนกลับที่ Anvil สร้างก่อนแก้ไฟล์เป็นชุด
+- **checkpoint** — จุดย้อนกลับที่ Pressure Harness สร้างก่อนแก้ไฟล์เป็นชุด
 - **prompt injection** — การฝังคำสั่งในเนื้อหาที่ AI อ่าน เพื่อหลอกให้ทำสิ่งที่เจ้าของไม่ได้สั่ง
+
+---
+
+## 23. ที่มาของชื่อ และการใช้คำว่า "harness"
+
+บันทึกไว้เพื่อให้เอกสาร/README/หน้าเว็บใช้คำให้ตรงกัน และไม่อธิบายตัวเองผิดความหมาย
+
+### 23.1 ทำไมโปรเจกต์นี้เป็น harness จริง
+
+คำว่า harness มี 3 ความหมายที่ใช้กันอยู่ — ของเราตรง 2 เลี่ยง 1
+
+| ความหมาย | ตรงไหม | เหตุผล |
+|---|---|---|
+| **สายรัดม้า / สายเซฟตี้** (ดั้งเดิม) | ✅ ตรง เป็นที่มาของอุปมา | แกนความหมายคือ *เชื่อมแหล่งพลังเข้ากับงาน พร้อมบังคับทิศและจำกัดขอบเขตไปด้วยในตัว* |
+| **agent harness** (วงการ AI) | ✅ **ตรงที่สุด — ใช้ความหมายนี้เป็นหลัก** | โครงที่ห่อโมเดลไว้แล้วให้ tool / loop / ระบบสิทธิ์ จนโมเดลทำงานจริงได้ (Claude Code, Codex CLI อยู่หมวดนี้) |
+| **test harness** (วงการซอฟต์แวร์) | ❌ **ไม่ตรง — ห้ามใช้อธิบายตัวเอง** | test harness มีไว้ *ยืนยันความถูกต้องของสิ่งที่ถูกทดสอบ* เราไม่ได้ทดสอบ ChatGPT เราเอา ChatGPT ไปทำงาน |
+
+การจับคู่กับสถาปัตยกรรมของเรา:
+
+| องค์ประกอบของ harness | ในโปรเจกต์นี้ |
+|---|---|
+| แหล่งพลัง | ChatGPT — ทรงพลังแต่ไม่มีมือ |
+| งานที่ต้องลาก | โค้ดและเครื่องของผู้ใช้ |
+| สายที่เชื่อมสองฝั่ง | MCP tool layer (§8) |
+| **บังเหียนและสายจำกัดระยะ** | policy engine, path jail, tier, การขออนุมัติ (§10) |
+| คนถือบังเหียน | ผู้ใช้ที่หน้าเครื่อง |
+
+**ประเด็นสำคัญ:** MCP server ทั่วไปที่แค่ต่อ tool ให้ AI **ไม่ใช่ harness** — มันคือ bridge หรือ
+gateway เพราะมีแต่สายลาก ไม่มีสายรัด สิ่งที่ทำให้โปรเจกต์นี้เป็น harness จริงคือ §10
+ซึ่งกินพื้นที่เอกสารมากที่สุดและเป็นความต่างหลักจากเครื่องมืออ้างอิงใน §18
+
+### 23.2 กฎการใช้คำ
+
+- ในเอกสารและหน้าแนะนำตัว ใช้ว่า **"local coding agent harness"** ไม่ใช่ "bridge" หรือ "gateway"
+- ห้ามอธิบายตัวเองด้วยคำที่ชวนให้เข้าใจเป็น test/load tool เช่น "stress", "benchmark", "pressure test"
+- **ห้ามเอาอุปมา harness ไปตั้งชื่อโมดูลในโค้ด** — ใช้ `policy.py`, `path_jail.py`, `approval.py`
+  ไม่ใช่ `reins.py`, `bridle.py`, `tether.py` ชื่อสวยในโค้ดแลกด้วยต้นทุนการอ่านที่สูงเกินคุ้ม
+- ชื่อ CLI: `ph` (ย่อ) — package/binary: `pharness`
