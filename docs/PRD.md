@@ -506,8 +506,23 @@ Pressure Harness เป็น *ห้องควบคุม* ไม่ใช�
 
 ### 12.3 เทคโนโลยี
 
-- **คอนโซล: pywebview** — backend Python ตัวเดียวกับ server, front-end เป็น HTML/CSS/JS
-  ธรรมดา (WebView2 บน Windows / WKWebView บน macOS) → **UI ย้ายข้ามแพลตฟอร์มได้เกือบ 100%**
+**เปลี่ยนจากแผนเดิมตอน M5 (และดีขึ้น):** แทนที่จะเป็น pywebview ล้วน คอนโซลถูกทำเป็น
+**local web app** ที่ serve บน loopback พร้อม token — ส่วน pywebview เหลือเป็นแค่กรอบหน้าต่าง
+ที่เปิดหน้าเดียวกันนั้น เหตุผล:
+
+- **ทดสอบได้จริง** — ผมยิง API ได้ทุก endpoint และ **เปิดดู+ถ่ายภาพหน้าจอทุกหน้าได้ด้วย
+  browser tool ของโปรเจกต์เอง** ซึ่งเป็นสิ่งที่หน้าต่าง Tk ทำไม่ได้ (ดู MANUAL-CHECKS §1)
+- **degrade ได้** — เครื่องที่ไม่มี GUI toolkit ยังใช้คอนโซลได้ แค่เปิด URL ในเบราว์เซอร์
+- **หน้าเดียวจบ ไม่มี build step** — คอนโซลที่ต้องมี toolchain ก่อนถึงจะดูได้ว่าเครื่องกำลังทำอะไร
+  คือคอนโซลที่จะพังวันที่ toolchain พัง
+
+**ข้อกำหนดด้านความปลอดภัยของคอนโซล**
+
+- **bind loopback เท่านั้น และมี token** — คอนโซลคือที่ที่*ให้*และ*ยึด*สิทธิ์
+  จึงต้องไม่มีทางเข้าถึงผ่าน tunnel ที่เปิดให้ tool; และ loopback ก็ยังหมายถึง
+  ทุกโปรแกรมอื่นบนเครื่องเดียวกัน จึงต้องมี token ด้วย
+- **คอนโซลรันในโปรเซสเดียวกับ server** — เพราะคิวอนุมัติอยู่ในหน่วยความจำ
+  คอนโซลแยกโปรเซสจะเห็นได้แค่สิ่งที่อยู่บนดิสก์
 - **หน้าต่างขออนุมัติ: native ของแต่ละ OS** แยกจากคอนโซล เพื่อให้ always-on-top และ
   เด้งได้แม้คอนโซลปิดอยู่ (ข้อกำหนดจาก §10.7)
 - **tray**: `pystray` (Windows) / menu bar adapter แยกสำหรับ macOS
@@ -749,7 +764,7 @@ autostart  = false
 | M2 — Files ✅ | read/search/write/apply_patch + journal + undo + `ph undo`/`ph checkpoints` | **เสร็จแล้ว** — 264 tests, core coverage 92%; patch engine เขียนเอง (ตรวจ context, ทนเลขบรรทัดคลาด, atomic ข้ามไฟล์), รักษา CRLF/encoding, undo ย้อนได้เอง |
 | M3 — Dev loop ✅ | git, project runners, process manager, `ProcessPort` ทั้ง Windows/POSIX, env allowlist | **เสร็จแล้ว** — 318 tests, core coverage 92%; ฆ่า process ทั้งต้นไม้ได้จริง (มีเทสต์ยืนยันว่า grandchild ตายด้วย) |
 | M4 — Exec + Approval ⚠️ | shell tool, คิวอนุมัติ, gateway (decide→ask→run→audit), หน้าต่าง Tk, console notifier | **โค้ดเสร็จ 348 tests** แต่ **หน้าต่าง Tk ยังไม่ถูกยืนยันบนเครื่องจริง** (คอนเทนเนอร์ไม่มี display) → ดู [MANUAL-CHECKS.md](MANUAL-CHECKS.md) §1 |
-| M5 — Console UI | การเชื่อมต่อ → โปรเจกต์ → การอนุญาต → กิจกรรม | ตั้งค่าได้โดยไม่แตะไฟล์ config |
+| M5 — Console UI ✅ | 8 หน้า: Overview, Approvals, Projects, Activity, Changes, Processes, Connection, Doctor | **เสร็จแล้ว** — เป็น local web app (loopback + token) ไม่ใช่ pywebview ล้วน จึง **ทดสอบและ screenshot ได้จริง** |
 | M6 — Browser ✅ | CDP client เขียนเอง + browser tool 9 op + web_fetch | **เสร็จแล้ว** — ทดสอบกับ Chromium จริง: navigate → click → อ่าน `ReferenceError: onSubmit is not defined` ที่หน้าเว็บโยนออกมาจริง → screenshot |
 | M7 — Transport ✅ | tool catalogue 13 ตัว, gateway ต่อเข้ากับ MCP, `ph serve` (stdio / HTTP), **OAuth 2.1 + pairing code**, ตัวจัดการ tunnel | **เสร็จแล้ว** — เดิน OAuth ครบทุกขั้นกับ server จริง: discovery → DCR → consent → PKCE → token → refresh rotation |
 | M8 — Ship | UI ที่เหลือ, แพ็ก, onboarding wizard, เอกสาร | P2 ติดตั้งใช้ได้ใน 10 นาที |

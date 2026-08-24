@@ -27,7 +27,7 @@ Not usable yet. In progress, milestone by milestone:
 | M7a | MCP server: tools over stdio and streamable HTTP | **done** |
 | M6 | browser control over CDP, and web_fetch | **done** |
 | M7 | OAuth with a pairing code, and tunnel management | **done** |
-| next | console UI | not started |
+| M5 | console: approvals, projects, activity, changes, processes, connection, doctor | **done** |
 
 Read [docs/PRD.md](docs/PRD.md) first — it carries the design, the threat
 reasoning, and the milestone plan.
@@ -55,6 +55,11 @@ ph auth code                        # the code that approves a new connection
 ph auth clients / ph auth revoke    # who has access, and taking it away
 ph stop                             # emergency stop
 ```
+
+`ph serve` also opens a console on loopback and prints its link. That is where
+approval prompts can be answered, remembered permissions removed, edits put
+back, and everything stopped at once. It is local-only and token-guarded,
+because it is the place permissions are handed out and taken away.
 
 Over HTTP, OAuth is not optional and there is no flag to turn it off — an
 endpoint behind a tunnel with no authentication is a machine anyone who learns

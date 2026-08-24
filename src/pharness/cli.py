@@ -261,6 +261,9 @@ def cmd_serve(args: argparse.Namespace) -> int:
 
     server = build_server(runtime, auth_provider=auth_provider, auth_settings=auth_settings)
 
+    if not args.no_console:
+        _start_console(runtime, args.console_port, auth_provider, tunnel)
+
     if not len(runtime.registry):
         print(
             "warning: no workspaces are authorised, so the tools have nothing to work on.\n"
@@ -293,6 +296,37 @@ def cmd_serve(args: argparse.Namespace) -> int:
     else:
         server.run(transport="stdio")
     return 0
+
+
+def _start_console(runtime, port: int, auth_provider=None, tunnel=None):
+    """Run the console beside the MCP server, in the same process.
+
+    Same process because the console answers approval prompts and shows the
+    queue, and neither exists anywhere else -- a console in its own process
+    could only ever show what is on disk.
+    """
+    import threading
+
+    import uvicorn
+
+    from pharness.console import ConsoleApi, build_console_app, new_token
+
+    api = ConsoleApi(
+        runtime,
+        auth_store=getattr(auth_provider, "store", None),
+        tunnel=tunnel,
+    )
+    token = new_token()
+    server = uvicorn.Server(
+        uvicorn.Config(
+            build_console_app(api, token), host="127.0.0.1", port=port, log_level="error"
+        )
+    )
+    thread = threading.Thread(target=server.run, daemon=True, name="console")
+    thread.start()
+
+    print(f"\n  console: http://127.0.0.1:{port}/?token={token}\n", file=sys.stderr)
+    return thread
 
 
 def cmd_auth(args: argparse.Namespace) -> int:
@@ -414,6 +448,8 @@ def build_parser() -> argparse.ArgumentParser:
     serve.add_argument("--http", action="store_true", help="streamable HTTP instead of stdio")
     serve.add_argument("--host", default="127.0.0.1")
     serve.add_argument("--port", type=int, default=18765)
+    serve.add_argument("--console-port", type=int, default=18766)
+    serve.add_argument("--no-console", action="store_true", help="do not run the console")
     serve.add_argument("--tunnel", action="store_true", help="publish through a tunnel")
     serve.add_argument("--tunnel-provider", default="cloudflared", choices=["cloudflared", "ngrok"])
     serve.add_argument(

@@ -38,7 +38,7 @@ testpaths = ["tests"]
 addopts = "-q"
 
 [tool.coverage.run]
-source = ["pharness.core"]
+source = ["pharness.core", "pharness.console"]
 # The MCP handlers are covered by tests that run the server as a real
 # subprocess, which coverage cannot see from here. Their registration is
 # exercised in-process; the handler bodies are exercised over stdio.
@@ -51,6 +51,11 @@ src = ["src", "tests"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+
+[tool.ruff.lint.per-file-ignores]
+# One long string holding a web page. Wrapping HTML and JavaScript to satisfy a
+# Python line limit makes the markup harder to read, not easier.
+"src/pharness/console/ui.py" = ["E501"]
 
 # PRD 14.2: the platform boundary is enforced by CI, not by discipline.
 [tool.importlinter]
