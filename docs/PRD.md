@@ -181,7 +181,8 @@ ChatGPT รันบน cloud จึงไม่มี "มือ" — อ่า
 | 4 | `write_file` | — | T1 | ค่าเริ่มต้น `create_only=true`; เขียนทับต้องระบุชัด + ลง journal |
 | 5 | `apply_patch` | — | T1 | unified diff หลายไฟล์, atomic, `dry_run`, ลง journal |
 | 6 | `git` | status, diff, log, show, branch, add, commit, stash, checkpoint, undo | T0/T1 | `push` = T4; `reset --hard`/ลบ branch = T5 |
-| 7 | `project` | dev, test, lint, typecheck, build, install | T2 | รัน script ที่ผู้ใช้ map ไว้; แสดงคำสั่งจริงที่จะรัน |
+| 7 | `project` | dev, test, lint, typecheck, build | T2 | รัน script ที่ผู้ใช้ map ไว้; แสดงคำสั่งจริงที่จะรัน |
+| 7b | `project` | install | **T4** | ปรับจาก T2 ตอน M1 — การติดตั้งดาวน์โหลดโค้ดแล้วรัน install script ทันที ถือเป็น egress + exec |
 | 8 | `process` | list, logs, stop, start | T1/T2 | log เก็บเป็น ring buffer บนดิสก์ ส่งกลับเฉพาะ tail |
 | 9 | `shell` | exec | T3 | ผ่านตัวสแกน §10.4 เสมอ |
 | 10 | `browser` | launch, navigate, snapshot, click, type, eval, console, network, screenshot | T2/T3 | CDP; `eval` = T3 |
@@ -288,7 +289,10 @@ active workspace ผูกกับ **session** ไม่ใช่ตัวแ�
 - คำสั่งทำลาย: `rm`, `del`, `rmdir`, `Remove-Item`, `format`, `mkfs`, `diskpart`,
   `truncate`, redirect `>` ทับไฟล์ที่มีอยู่
 - ดาวน์โหลดมารันทันที: `curl … | sh`, `iwr … | iex`, `Invoke-Expression`
-- `git push --force`, `git branch -D`, `git reset --hard` บน branch หลัก
+- `git push --force`/`--mirror`/`--delete`, `git branch -D`, `git tag -d`, `git filter-branch`
+- `git reset --hard` และ `git clean -f*` — **เข้มกว่าที่ร่างไว้เดิม (ตัดสินตอน M1)**
+  เดิมเขียนว่า "บน branch หลัก" แต่ตอน classify เรายังไม่รู้ว่าอยู่ branch ไหน
+  (ต้องเรียก git ก่อน ซึ่งทำให้ตัวตัดสินไม่ pure) จึงห้ามทั้งหมด — ทางเลือกที่ปลอดภัยคือ `git stash`
 - คำสั่งที่ปิดกลไกป้องกันของ Pressure Harness เอง
 
 **v1 ไม่มี tool ลบไฟล์เลย** — ตรงตามข้อกำหนด "เพิ่ม-อัปเดต-แก้ไขได้ ยกเว้นลบ"
@@ -467,6 +471,9 @@ Pressure Harness เป็น *ห้องควบคุม* ไม่ใช�
 เป้าหมาย: v1 ส่ง Windows แต่ **โครงต้องพร้อมพอร์ตไป macOS แล้ว Linux** โดยไม่รื้อ core
 
 ### 14.1 โครงโฟลเดอร์
+
+> โครงจริงที่ลงมือทำใน M1 อยู่ใต้ `src/pharness/` เพื่อให้ติดตั้งเป็นแพ็กเกจได้
+> (`src/pharness/core`, `src/pharness/ports`, `src/pharness/adapters`, `src/pharness/ui`)
 
 ```
 core/            ← ไม่รู้จัก OS เลย  (~70-75% ของโค้ด)
@@ -663,7 +670,7 @@ autostart  = false
 | Milestone | เนื้อหา | ผลลัพธ์ที่พิสูจน์ได้ |
 |---|---|---|
 | **M0 — Spike** ⚠️ | MCP server จิ๋ว 6 tool + tunnel — โค้ดอยู่ที่ `spike/`, วิธีทำการทดลองอยู่ที่ [docs/M0-SPIKE.md](M0-SPIKE.md) | ตอบ OQ-1..4 ใน §20 **ก่อนลงทุนสร้างของจริง** |
-| M1 — Core | ports layer, config, workspace, path jail, policy engine, audit log + CI 3 OS | unit + fuzz test ผ่าน |
+| M1 — Core ✅ | ports layer, config, workspace, path jail, policy engine, audit log, `ph` CLI + CI 3 OS | **เสร็จแล้ว** — 200 tests, core coverage 91%, contract test ต่อ port, fuzz test, import-linter บังคับเส้นแบ่ง OS |
 | M2 — Files | read/search/write/apply_patch + journal + undo | แก้โค้ดจากแชทได้ ย้อนได้ |
 | M3 — Dev loop | git, project runners, process manager | สั่ง test/build จากแชทได้ |
 | M4 — Exec + Approval | shell + ตัวสแกนคำสั่ง + คิวอนุมัติ + หน้าต่าง native | คำสั่งอันตรายถูกถาม/ปฏิเสธจริง |

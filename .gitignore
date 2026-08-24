@@ -1,7 +1,16 @@
 __pycache__/
 *.py[cod]
+*.egg-info/
+build/
+dist/
 .venv/
 venv/
+.coverage
+.coverage.*
+htmlcov/
+.pytest_cache/
+.hypothesis/
+.ruff_cache/
 spike/spike-sandbox/
 spike/.spike-token
 .pharness/

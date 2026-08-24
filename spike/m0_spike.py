@@ -16,6 +16,7 @@ cannot damage anything outside it.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import os
 import pathlib
 import secrets
@@ -147,12 +148,16 @@ def spike_overwrite_file(path: str, content: str) -> str:
 def _test_png(width: int = 240, height: int = 120) -> bytes:
     """Build a recognisable PNG with no image library.
 
-    Colour bars over a checkerboard strip, so a blank or broken render is
-    obvious rather than ambiguous.
+    Colour bars over a checkerboard strip, so a blank or broken
+    render is obvious rather than ambiguous.
     """
     bars = [
-        (220, 60, 60), (220, 160, 50), (225, 215, 70),
-        (70, 180, 90), (60, 130, 220), (140, 80, 200),
+        (220, 60, 60),
+        (220, 160, 50),
+        (225, 215, 70),
+        (70, 180, 90),
+        (60, 130, 220),
+        (140, 80, 200),
     ]
     rows = bytearray()
     for y in range(height):
@@ -251,7 +256,12 @@ def register_padding_tools(count: int) -> None:
             ),
             annotations=ToolAnnotations(title=f"Padding {index}", readOnlyHint=True),
         )
-        def pad(target: str = "", mode: str = "default", limit: int = 10, verbose: bool = False) -> str:
+        def pad(
+            target: str = "",
+            mode: str = "default",
+            limit: int = 10,
+            verbose: bool = False,
+        ) -> str:
             return f"{name}(target={target!r}, mode={mode!r}, limit={limit}, verbose={verbose})"
 
     for index in range(count):
@@ -289,10 +299,8 @@ def load_or_create_token() -> str:
             return token
     token = secrets.token_urlsafe(24)
     TOKEN_FILE.write_text(token, encoding="utf-8")
-    try:
+    with contextlib.suppress(OSError):
         os.chmod(TOKEN_FILE, 0o600)
-    except OSError:
-        pass
     return token
 
 
@@ -324,11 +332,14 @@ def main() -> int:
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=18765)
     parser.add_argument(
-        "--extra-tools", type=int, default=int(os.environ.get("SPIKE_EXTRA_TOOLS", "0")),
+        "--extra-tools",
+        type=int,
+        default=int(os.environ.get("SPIKE_EXTRA_TOOLS", "0")),
         help="register N padding tools to probe the connector tool limit (OQ-3)",
     )
     parser.add_argument(
-        "--json-response", action="store_true",
+        "--json-response",
+        action="store_true",
         help="reply with application/json instead of an SSE stream",
     )
     args = parser.parse_args()
@@ -353,8 +364,8 @@ def main() -> int:
     url = f"http://{args.host}:{args.port}/{token}/mcp"
     log("transport: streamable http")
     log(f"local MCP URL: {url}")
-    log("expose it with:  cloudflared tunnel --url http://127.0.0.1:%d" % args.port)
-    log("then register  https://<tunnel-host>/%s/mcp  in ChatGPT" % token)
+    log(f"expose it with:  cloudflared tunnel --url http://127.0.0.1:{args.port}")
+    log(f"then register  https://<tunnel-host>/{token}/mcp  in ChatGPT")
 
     import uvicorn
 
