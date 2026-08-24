@@ -615,7 +615,8 @@ autostart  = false
   → ระยะแรกแจกผ่าน **winget / scoop / pipx / brew** และบอกวิธีตรวจ checksum อย่างชัดเจน
 - **ห้ามมี auto-updater ที่รันโค้ดที่ดาวน์โหลดมาโดยไม่ตรวจลายเซ็น** —
   v1 ใช้ "แจ้งเตือนว่ามีเวอร์ชันใหม่ + ให้ผู้ใช้อัปเดตเอง"
-- ต้องมี `SECURITY.md` (ช่องทางรายงานช่องโหว่), `THREAT_MODEL.md`, license (แนะนำ Apache-2.0)
+- ต้องมี `SECURITY.md` (ช่องทางรายงานช่องโหว่), `THREAT_MODEL.md`
+- **license: Apache-2.0** (ยืนยันแล้ว — ไฟล์ `LICENSE` ที่รากของ repo)
 - **ชื่อผลิตภัณฑ์** — `Pressure Harness` ไม่ชนเครื่องหมายการค้าใคร ใช้ "for ChatGPT"
   ต่อท้ายได้ แต่ห้ามเอา ChatGPT/Codex/Claude ไปเป็นส่วนหนึ่งของชื่อ (ดู §23 ที่มาของชื่อ)
 - **ต้องมี tagline คู่ชื่อเสมอ** — คำว่า "pressure" ทำให้คนในวงการเดาไปทาง load/stress testing
@@ -661,7 +662,7 @@ autostart  = false
 
 | Milestone | เนื้อหา | ผลลัพธ์ที่พิสูจน์ได้ |
 |---|---|---|
-| **M0 — Spike** ⚠️ | MCP server จิ๋ว: 1 read tool + 1 write tool + tunnel | ตอบ OQ-1..3 ใน §20 **ก่อนลงทุนสร้างของจริง** |
+| **M0 — Spike** ⚠️ | MCP server จิ๋ว 6 tool + tunnel — โค้ดอยู่ที่ `spike/`, วิธีทำการทดลองอยู่ที่ [docs/M0-SPIKE.md](M0-SPIKE.md) | ตอบ OQ-1..4 ใน §20 **ก่อนลงทุนสร้างของจริง** |
 | M1 — Core | ports layer, config, workspace, path jail, policy engine, audit log + CI 3 OS | unit + fuzz test ผ่าน |
 | M2 — Files | read/search/write/apply_patch + journal + undo | แก้โค้ดจากแชทได้ ย้อนได้ |
 | M3 — Dev loop | git, project runners, process manager | สั่ง test/build จากแชทได้ |
@@ -679,6 +680,9 @@ autostart  = false
 ---
 
 ## 20. ความเสี่ยงและคำถามที่ยังไม่มีคำตอบ
+
+> การทดลองที่ใช้ตอบ OQ-1..4 และตารางบันทึกผล อยู่ใน [docs/M0-SPIKE.md](M0-SPIKE.md)
+> เมื่อได้ผลแล้วให้แปลง OQ แต่ละข้อในตารางนี้เป็นข้อสรุป
 
 | # | คำถาม / ความเสี่ยง | ผลกระทบ | แผนรับมือ |
 |---|---|---|---|

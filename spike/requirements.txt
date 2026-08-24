@@ -1,0 +1,2 @@
+# M0 spike only. The real project pins its own dependencies later.
+mcp>=2.0,<3
