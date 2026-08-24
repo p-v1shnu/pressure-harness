@@ -17,6 +17,7 @@ from pharness.adapters import select
 from pharness.core.audit import AuditLog
 from pharness.core.config import Config, Mode, WorkspaceConfig, load_config, save_config
 from pharness.core.errors import PharnessError
+from pharness.core.journal import Journal
 from pharness.core.policy.commands import classify
 from pharness.core.policy.engine import PolicyEngine, Request
 from pharness.core.policy.tiers import Tier
@@ -157,6 +158,42 @@ def cmd_check(args: argparse.Namespace) -> int:
     return 0
 
 
+def _resolve_workspace(alias: str | None):
+    adapters = select()
+    config = load_config(_config_path(adapters))
+    registry = WorkspaceRegistry.from_config(config, adapters.paths)
+    workspace = registry.get(alias) if alias else registry.sole()
+    if workspace is None:
+        raise PharnessError(
+            "several workspaces are registered; name one with --workspace "
+            f"({', '.join(registry.aliases()) or 'none'})"
+        )
+    return workspace
+
+
+def cmd_checkpoints(args: argparse.Namespace) -> int:
+    workspace = _resolve_workspace(args.workspace)
+    checkpoints = Journal(workspace.root).list()
+    if not checkpoints:
+        print("no checkpoints recorded yet")
+        return 0
+    for checkpoint in checkpoints[-args.count :]:
+        print(checkpoint.summary)
+        for change in checkpoint.changes:
+            print(f"      {change.action:7} {change.path}")
+    return 0
+
+
+def cmd_undo(args: argparse.Namespace) -> int:
+    """Undo is journaled too, so this is reversible in turn (PRD 10.8)."""
+    workspace = _resolve_workspace(args.workspace)
+    journal = Journal(workspace.root)
+    result = journal.undo(args.checkpoint)
+    print(f"Undone. {result.summary}")
+    print(f"Reverse this with: ph undo {result.id}")
+    return 0
+
+
 def cmd_doctor(args: argparse.Namespace) -> int:
     adapters = select()
     problems = 0
@@ -222,6 +259,16 @@ def build_parser() -> argparse.ArgumentParser:
     tail = audit_sub.add_parser("tail", help="show recent entries")
     tail.add_argument("count", nargs="?", type=int, default=20)
     tail.set_defaults(func=cmd_audit_tail)
+
+    checkpoints = sub.add_parser("checkpoints", help="list undoable checkpoints")
+    checkpoints.add_argument("--workspace")
+    checkpoints.add_argument("count", nargs="?", type=int, default=20)
+    checkpoints.set_defaults(func=cmd_checkpoints)
+
+    undo = sub.add_parser("undo", help="restore the files a checkpoint changed")
+    undo.add_argument("checkpoint", nargs="?", help="defaults to the most recent")
+    undo.add_argument("--workspace")
+    undo.set_defaults(func=cmd_undo)
 
     check = sub.add_parser(
         "check",

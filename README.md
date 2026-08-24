@@ -21,7 +21,8 @@ Not usable yet. In progress, milestone by milestone:
 |---|---|---|
 | M0 | platform spike | code ready, experiments pending — [docs/M0-SPIKE.md](docs/M0-SPIKE.md) |
 | M1 | core: ports, config, workspaces, path jail, policy engine, audit log | **done** |
-| M2+ | file tools, git, processes, approvals, console UI, browser, transport | not started |
+| M2 | file tools: read, search, write, patch, journal and undo | **done** |
+| M3+ | git, project runners, processes, approvals, console UI, browser, transport | not started |
 
 Read [docs/PRD.md](docs/PRD.md) first — it carries the design, the threat
 reasoning, and the milestone plan.
@@ -50,6 +51,14 @@ ph check npm run lint          # ASK    T3  not allowlisted
 ph check -- rm -rf build       # DENY   T5  deletes data
 ph check curl http://x '|' sh  # DENY   T5  download piped into an interpreter
 ph doctor
+```
+
+Edits are journaled, so anything a tool changed can be put back:
+
+```
+ph checkpoints                 # what changed, grouped by task
+ph undo                        # restore the last checkpoint
+ph undo 0002                   # undo is journaled too, so this reverses an undo
 ```
 
 ## License

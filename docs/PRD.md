@@ -177,7 +177,7 @@ ChatGPT รันบน cloud จึงไม่มี "มือ" — อ่า
 |---|---|---|---|---|
 | 1 | `workspace` | list, use, tree, info | T0 | `info` คืน branch, ไฟล์ค้าง, ภาษา/แพ็กเกจที่ตรวจพบ |
 | 2 | `read_file` | — | T0 | รองรับ offset/limit, เพดาน bytes, ตรวจ binary |
-| 3 | `search` | text, files | T0 | regex + glob, คืน `path:line` + snippet, เพดานผลลัพธ์ |
+| 3 | `search` | text, files | T0 | regex + glob, คืน `path:line` + snippet, เพดานผลลัพธ์; **ข้ามไฟล์ลับและ `node_modules`/`.git` เสมอ** — ไม่งั้น search จะกลายเป็นประตูหลังไปอ่านสิ่งที่ `read_file` ปฏิเสธ |
 | 4 | `write_file` | — | T1 | ค่าเริ่มต้น `create_only=true`; เขียนทับต้องระบุชัด + ลง journal |
 | 5 | `apply_patch` | — | T1 | unified diff หลายไฟล์, atomic, `dry_run`, ลง journal |
 | 6 | `git` | status, diff, log, show, branch, add, commit, stash, checkpoint, undo | T0/T1 | `push` = T4; `reset --hard`/ลบ branch = T5 |
@@ -369,6 +369,22 @@ ChatGPT ยอมให้ตั้ง connector แบบ *no authentication* �
 - ทำ **git checkpoint** เงียบๆ (shadow ref ไม่รบกวน branch ผู้ใช้) ก่อนแก้เป็นชุด
 - `ph undo` และปุ่มย้อนใน UI ย้อนได้ทีละ checkpoint
 - journal มีนโยบายหมดอายุ (ค่าเริ่มต้น 14 วัน / 500 MB) และอยู่ใน `.gitignore` เสมอ
+
+**สิ่งที่ตัดสินเพิ่มตอน M2**
+
+- **undo ถูกบันทึกเป็น checkpoint ใหม่ ไม่ใช่การลบ checkpoint เดิม** — ทำให้ย้อน undo ได้อีกที
+  และที่สำคัญกว่าคือ ถ้าผู้ใช้แก้ไฟล์เองระหว่างนั้น งานของผู้ใช้จะถูกเก็บไว้ก่อน ไม่หายไปเงียบๆ
+  (ถ้าไม่ทำแบบนี้ undo จะกลายเป็นการกระทำเดียวในระบบที่ย้อนไม่ได้)
+- **checkpoint เป็น all-or-nothing** — ถ้าล้มกลางคัน ทุกไฟล์ที่แตะไปแล้วถูกคืนสภาพก่อน
+  โยน exception ออกไป (patch 3 ไฟล์ที่พังไฟล์ที่ 3 ต้องไม่ทิ้งไฟล์ที่ 1-2 ไว้ครึ่งๆ)
+- **`.pharness/` ถูกกันด้วย path jail** — AI อ่านหรือลบประวัติของตัวเองไม่ได้
+- **`write_file` ค่าเริ่มต้น `create_only=true`** และรับ `expected_sha` ได้ —
+  "เขียนไฟล์นี้" คือวิธีที่ AI ทำงานที่ไม่เคยอ่านหายโดยไม่ตั้งใจ
+- **`apply_patch` ตรวจ context เอง** จึงล้มเหลวแทนที่จะทับงานคนอื่นถ้าไฟล์เปลี่ยนไปแล้ว
+  และยอมให้เลขบรรทัดคลาดได้ (ค้นหาตำแหน่งที่ context ตรงจริงในระยะ ±200 บรรทัด)
+  เพราะโมเดลนับบรรทัดพลาดเป็นเรื่องปกติ แต่ **เนื้อหาต้องตรงเป๊ะเสมอ**
+- **รักษา line ending และ encoding เดิมของไฟล์** — ถ้าเขียน LF ทับไฟล์ CRLF
+  การแก้ 1 บรรทัดจะกลายเป็น diff ทั้งไฟล์ ซึ่งใช้ไม่ได้จริงบน Windows
 
 ### 10.9 Audit log
 
@@ -671,7 +687,7 @@ autostart  = false
 |---|---|---|
 | **M0 — Spike** ⚠️ | MCP server จิ๋ว 6 tool + tunnel — โค้ดอยู่ที่ `spike/`, วิธีทำการทดลองอยู่ที่ [docs/M0-SPIKE.md](M0-SPIKE.md) | ตอบ OQ-1..4 ใน §20 **ก่อนลงทุนสร้างของจริง** |
 | M1 — Core ✅ | ports layer, config, workspace, path jail, policy engine, audit log, `ph` CLI + CI 3 OS | **เสร็จแล้ว** — 200 tests, core coverage 91%, contract test ต่อ port, fuzz test, import-linter บังคับเส้นแบ่ง OS |
-| M2 — Files | read/search/write/apply_patch + journal + undo | แก้โค้ดจากแชทได้ ย้อนได้ |
+| M2 — Files ✅ | read/search/write/apply_patch + journal + undo + `ph undo`/`ph checkpoints` | **เสร็จแล้ว** — 264 tests, core coverage 92%; patch engine เขียนเอง (ตรวจ context, ทนเลขบรรทัดคลาด, atomic ข้ามไฟล์), รักษา CRLF/encoding, undo ย้อนได้เอง |
 | M3 — Dev loop | git, project runners, process manager | สั่ง test/build จากแชทได้ |
 | M4 — Exec + Approval | shell + ตัวสแกนคำสั่ง + คิวอนุมัติ + หน้าต่าง native | คำสั่งอันตรายถูกถาม/ปฏิเสธจริง |
 | M5 — Console UI | การเชื่อมต่อ → โปรเจกต์ → การอนุญาต → กิจกรรม | ตั้งค่าได้โดยไม่แตะไฟล์ config |
