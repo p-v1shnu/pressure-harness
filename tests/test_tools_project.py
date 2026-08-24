@@ -139,3 +139,52 @@ def test_start_dev_without_a_dev_script(project: ProjectTools, tmp_path: Path):
     root = tmp_path / "empty"
     root.mkdir()
     assert not make_tools(root, {}).start_dev().ok
+
+
+def test_dev_reports_the_address_the_server_printed(tmp_path: Path):
+    """Opening the page two seconds early looks exactly like a broken change."""
+    root = tmp_path / "proj"
+    root.mkdir()
+    (root / "server.py").write_text(
+        "import time\nprint('  Local:   http://localhost:5173/', flush=True)\n"
+        "while True: time.sleep(0.1)\n",
+        encoding="utf-8",
+    )
+    tools = make_tools(root, {"dev": f"{sys.executable} -u server.py"})
+
+    started = tools.start_dev()
+    try:
+        assert started.meta["url"] == "http://localhost:5173"
+        assert "serving at" in started.text
+    finally:
+        tools.process.stop_all()
+
+
+def test_dev_says_so_when_no_address_appears(tmp_path: Path):
+    root = tmp_path / "proj"
+    root.mkdir()
+    (root / "quiet.py").write_text("import time\nwhile True: time.sleep(0.1)\n", encoding="utf-8")
+    tools = make_tools(root, {"dev": f"{sys.executable} -u quiet.py"})
+
+    started = tools.start_dev()
+    try:
+        assert started.meta["url"] is None
+        assert "no address printed" in started.text
+    finally:
+        tools.process.stop_all()
+
+
+@pytest.mark.parametrize(
+    ("line", "expected"),
+    [
+        ("  ➜  Local:   http://localhost:5173/", "http://localhost:5173"),
+        ("ready - started server on http://127.0.0.1:3000", "http://127.0.0.1:3000"),
+        ("Listening on http://[::1]:8080/", "http://[::1]:8080"),
+        ("compiled successfully", None),
+    ],
+)
+def test_url_detection(line: str, expected: str | None):
+    from pharness.core.tools.project import URL_IN_OUTPUT
+
+    match = URL_IN_OUTPUT.search(line)
+    assert (match.group(0).rstrip("/.,") if match else None) == expected

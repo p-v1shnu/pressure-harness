@@ -167,3 +167,13 @@ def test_network_failures_are_visible(browser: BrowserTools):
     browser.evaluate("fetch('http://127.0.0.1:9/missing').catch(() => {})")
     time.sleep(0.6)
     assert browser.network().ok
+
+
+@has_browser
+def test_a_page_that_did_not_load_is_reported_as_a_failure(browser: BrowserTools):
+    """Saying "loaded" when nothing loaded sends the model hunting the wrong bug."""
+    browser.launch(headless=True)
+    result = browser.navigate("http://127.0.0.1:9/never-listening")
+    assert not result.ok
+    assert "did not load" in result.text
+    assert "dev server" in result.text

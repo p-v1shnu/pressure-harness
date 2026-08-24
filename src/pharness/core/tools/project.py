@@ -9,7 +9,9 @@ something the user should have to take on trust.
 from __future__ import annotations
 
 import json
+import re
 import shutil
+import time
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -25,6 +27,10 @@ DEFAULT_TIMEOUT = 600.0
 
 # Detected by lockfile, because that is what the project actually uses rather
 # than what happens to be installed.
+# Dev servers announce themselves: "Local: http://localhost:5173/",
+# "ready on http://127.0.0.1:3000", and so on.
+URL_IN_OUTPUT = re.compile(r"https?://(?:localhost|127\.0\.0\.1|\[::1\])(?::\d+)?(?:/\S*)?")
+
 LOCKFILES = {
     "pnpm-lock.yaml": "pnpm",
     "yarn.lock": "yarn",
@@ -138,13 +144,40 @@ class ProjectTools:
         argv, why = resolved
         argv = self._with_executable(argv)
         handle = self.process.spawn(argv, self.workspace.root, self.env, label="dev")
+
+        url = self._wait_for_url(handle)
+        lines = [f"started {handle.id}: {' '.join(argv)}", f"({why})", f"pid {handle.pid}"]
+        if url:
+            lines.append(f"serving at {url}")
+        else:
+            lines.append(
+                "no address printed yet -- check process logs before opening it in a browser"
+            )
+
         return ToolResult(
-            text=(
-                f"started {handle.id}: {' '.join(argv)}\n({why})\n"
-                f"pid {handle.pid}. Read its output with process logs, stop it with process stop."
-            ),
-            meta={"process_id": handle.id, "pid": handle.pid, "argv": argv},
+            text="\n".join(lines),
+            meta={"process_id": handle.id, "pid": handle.pid, "argv": argv, "url": url},
         )
+
+    def _wait_for_url(self, handle, timeout_sec: float = 10.0) -> str | None:
+        """Watch the dev server's output for the address it is serving on.
+
+        Returning the moment the process starts is technically true and
+        practically useless: the next thing anyone does is open the page, and a
+        page opened two seconds too early is a connection error that looks like
+        a broken change. Most dev servers announce their URL, so this waits for
+        one, and says plainly when none appeared rather than implying the server
+        is ready.
+        """
+        deadline = time.monotonic() + timeout_sec
+        while time.monotonic() < deadline:
+            if not handle.is_running():
+                return None
+            match = URL_IN_OUTPUT.search(handle.tail(60))
+            if match:
+                return match.group(0).rstrip("/.,")
+            time.sleep(0.2)
+        return None
 
     def _with_executable(self, argv: list[str]) -> list[str]:
         """Resolve argv[0] on PATH.

@@ -147,6 +147,18 @@ class BrowserTools:
             time.sleep(0.1)
         time.sleep(LOAD_SETTLE_SEC)
 
+        failures = [
+            event.get("params", {}).get("errorText", "")
+            for event in session.events("Network.loadingFailed", limit=20)
+        ]
+        if failures:
+            # Saying "loaded" when nothing loaded sends the model looking for a
+            # bug in the page instead of at the server that never answered.
+            return ToolResult.failure(
+                f"{url} did not load: {failures[-1]}. Is the dev server running?",
+                url=url,
+            )
+
         title = self._eval_value(session, "document.title") or "(no title)"
         errors = self._console_errors(session)
         summary = f"loaded {url}\ntitle: {title}"
