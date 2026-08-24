@@ -10,9 +10,11 @@ tries it and fails.
 from __future__ import annotations
 
 import sys
+from collections.abc import Callable
 from dataclasses import dataclass
+from pathlib import Path
 
-from pharness.ports import PathsPort, ShellPort
+from pharness.ports import PathsPort, ProcessPort, ShellPort
 
 
 class UnsupportedPlatformError(RuntimeError):
@@ -24,6 +26,10 @@ class Adapters:
     platform: str
     paths: PathsPort
     shell: ShellPort
+    process_factory: Callable[[Path], ProcessPort]
+    """Built with a log directory rather than eagerly: where child process
+    output lands is the caller's decision, and macOS has no implementation to
+    construct yet."""
     capabilities: frozenset[str]
     supported: bool
     """False for a platform that runs but is not a v1 target."""
@@ -40,12 +46,14 @@ def select(platform: str | None = None) -> Adapters:
 
     if key.startswith("win"):
         from pharness.adapters.windows.paths import WindowsPaths
+        from pharness.adapters.windows.process import WindowsProcess
         from pharness.adapters.windows.shell import WindowsShell
 
         return Adapters(
             platform="windows",
             paths=WindowsPaths(),
             shell=WindowsShell(),
+            process_factory=WindowsProcess,
             capabilities=_CORE_CAPABILITIES,
             supported=True,
         )
@@ -54,10 +62,14 @@ def select(platform: str | None = None) -> Adapters:
         from pharness.adapters.macos.paths import MacOSPaths
         from pharness.adapters.macos.shell import MacOSShell
 
+        def _unavailable(_: Path) -> ProcessPort:
+            raise NotImplementedError("macOS support lands in M9; see PRD 14.4")
+
         return Adapters(
             platform="macos",
             paths=MacOSPaths(),
             shell=MacOSShell(),
+            process_factory=_unavailable,
             capabilities=frozenset(),
             supported=False,
         )
@@ -67,12 +79,14 @@ def select(platform: str | None = None) -> Adapters:
         # every push so path and encoding assumptions are caught early
         # (PRD 14.2).
         from pharness.adapters.posix.paths import PosixPaths
+        from pharness.adapters.posix.process import PosixProcess
         from pharness.adapters.posix.shell import PosixShell
 
         return Adapters(
             platform="linux",
             paths=PosixPaths(),
             shell=PosixShell(),
+            process_factory=PosixProcess,
             capabilities=_CORE_CAPABILITIES,
             supported=False,
         )

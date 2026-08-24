@@ -7,7 +7,17 @@ point of having a single decision point (PRD 6.1).
 """
 
 from pharness.core.tools.files import FileTools
+from pharness.core.tools.git import GitTools
+from pharness.core.tools.processes import ProcessTools
+from pharness.core.tools.project import ProjectTools
 from pharness.core.tools.results import ToolResult
 from pharness.core.tools.search import SearchTools
 
-__all__ = ["FileTools", "SearchTools", "ToolResult"]
+__all__ = [
+    "FileTools",
+    "GitTools",
+    "ProcessTools",
+    "ProjectTools",
+    "SearchTools",
+    "ToolResult",
+]

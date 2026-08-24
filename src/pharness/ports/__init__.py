@@ -7,10 +7,11 @@ at port time.
 """
 
 from pharness.ports.paths import PathsPort
-from pharness.ports.process import ProcessHandle, ProcessPort
+from pharness.ports.process import CompletedProcess, ProcessHandle, ProcessPort
 from pharness.ports.shell import ParsedCommand, ShellParseError, ShellPort
 
 __all__ = [
+    "CompletedProcess",
     "ParsedCommand",
     "PathsPort",
     "ProcessHandle",

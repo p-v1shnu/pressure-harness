@@ -22,7 +22,8 @@ Not usable yet. In progress, milestone by milestone:
 | M0 | platform spike | code ready, experiments pending — [docs/M0-SPIKE.md](docs/M0-SPIKE.md) |
 | M1 | core: ports, config, workspaces, path jail, policy engine, audit log | **done** |
 | M2 | file tools: read, search, write, patch, journal and undo | **done** |
-| M3+ | git, project runners, processes, approvals, console UI, browser, transport | not started |
+| M3 | git, project runners, process manager, environment allowlist | **done** |
+| M4+ | approval queue and native prompt, console UI, browser, transport | not started |
 
 Read [docs/PRD.md](docs/PRD.md) first — it carries the design, the threat
 reasoning, and the milestone plan.

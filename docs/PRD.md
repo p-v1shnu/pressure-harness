@@ -183,7 +183,7 @@ ChatGPT รันบน cloud จึงไม่มี "มือ" — อ่า
 | 6 | `git` | status, diff, log, show, branch, add, commit, stash, checkpoint, undo | T0/T1 | `push` = T4; `reset --hard`/ลบ branch = T5 |
 | 7 | `project` | dev, test, lint, typecheck, build | T2 | รัน script ที่ผู้ใช้ map ไว้; แสดงคำสั่งจริงที่จะรัน |
 | 7b | `project` | install | **T4** | ปรับจาก T2 ตอน M1 — การติดตั้งดาวน์โหลดโค้ดแล้วรัน install script ทันที ถือเป็น egress + exec |
-| 8 | `process` | list, logs, stop, start | T1/T2 | log เก็บเป็น ring buffer บนดิสก์ ส่งกลับเฉพาะ tail |
+| 8 | `process` | list, logs, stop, start | T1/T2 | log เขียนลงไฟล์ ไม่ใช่ pipe (pipe ที่ไม่มีใครอ่านจะ deadlock) ส่งกลับเฉพาะ tail; **stop ฆ่าทั้งต้นไม้** — ฆ่าแค่ตัวแม่จะเหลือ dev server ครองพอร์ตอยู่ ซึ่งดูเหมือนบั๊กของเราเอง |
 | 9 | `shell` | exec | T3 | ผ่านตัวสแกน §10.4 เสมอ |
 | 10 | `browser` | launch, navigate, snapshot, click, type, eval, console, network, screenshot | T2/T3 | CDP; `eval` = T3 |
 | 11 | `web_fetch` | — | T4 | domain allowlist, บล็อก IP วงใน §10.5 |
@@ -195,6 +195,10 @@ ChatGPT รันบน cloud จึงไม่มี "มือ" — อ่า
 
 - **`project.*` ปลอดภัยแค่เท่าที่ `package.json` ปลอดภัย** — ใครก็แก้ script ให้ทำอะไรก็ได้
   ตอนขออนุมัติจึงต้องแสดงคำสั่งที่ script นั้น resolve ออกมาจริงๆ ไม่ใช่แค่ชื่อ script
+  (ลง M3 แล้ว: ผลลัพธ์ทุกครั้งขึ้นต้นด้วย `$ <คำสั่งเต็ม>` และบอกว่ามันมาจากไหน —
+  จาก config ของ workspace หรือจาก `package.json`)
+- **git ถูกเรียกแบบ argv ไม่ผ่าน shell** — ชื่อ branch หรือชื่อไฟล์จึงกลายเป็นคำสั่งที่สองไม่ได้
+  และ **ไม่มี `--amend`** เพราะการแก้ commit ที่อาจ push ไปแล้วคือการรื้อประวัติ; commit ผิดให้ commit ใหม่
 - **`browser.eval` และ `codex_run` คือช่องหนีทุกกฎ** — ต้องนับเป็น T3 เสมอ ห้ามใส่ allowlist อัตโนมัติ
 - **`browser.snapshot` / `web_fetch` คืนเนื้อหาจากภายนอก** — ต้องห่อด้วยเครื่องหมายบอกที่มา (§10.5)
 
@@ -322,6 +326,10 @@ active workspace ผูกกับ **session** ไม่ใช่ตัวแ�
 - **redaction ขาออก**: ทุก output ผ่านตัวกรองลบความลับ (รูปแบบ API key ที่รู้จัก, ค่าใน `.env`,
   string ที่มี entropy สูง) ก่อนส่งกลับ — เพราะทุกอย่างที่ส่งกลับคือการอัปโหลดขึ้น cloud
 - **strip env ขาเข้า child process** — ส่งเฉพาะ env ที่ allowlist ไว้ ไม่ส่งทั้ง environment
+  (ลง M3 แล้ว) จุดที่ต้องระวังคือ allowlist ต้องครบพอที่โปรแกรมจะรันได้จริง —
+  บน Windows ถ้าขาด `SystemRoot`/`PATHEXT` โปรแกรมจะพังแบบงงๆ ซึ่งแย่กว่าพังแบบชัดเจน
+  และมี **denylist ที่ส่งต่อไม่ได้แม้ผู้ใช้จะ allowlist เอง** (`LD_PRELOAD`, `DYLD_INSERT_LIBRARIES`,
+  `BASH_ENV`, `PYTHONSTARTUP`) เพราะตัวแปรพวกนี้เปลี่ยน *ตัวตน* ของโปรแกรม ไม่ใช่แค่พฤติกรรม
 
 ### 10.6 การยืนยันตัวตนของ transport HTTPS
 
@@ -688,7 +696,7 @@ autostart  = false
 | **M0 — Spike** ⚠️ | MCP server จิ๋ว 6 tool + tunnel — โค้ดอยู่ที่ `spike/`, วิธีทำการทดลองอยู่ที่ [docs/M0-SPIKE.md](M0-SPIKE.md) | ตอบ OQ-1..4 ใน §20 **ก่อนลงทุนสร้างของจริง** |
 | M1 — Core ✅ | ports layer, config, workspace, path jail, policy engine, audit log, `ph` CLI + CI 3 OS | **เสร็จแล้ว** — 200 tests, core coverage 91%, contract test ต่อ port, fuzz test, import-linter บังคับเส้นแบ่ง OS |
 | M2 — Files ✅ | read/search/write/apply_patch + journal + undo + `ph undo`/`ph checkpoints` | **เสร็จแล้ว** — 264 tests, core coverage 92%; patch engine เขียนเอง (ตรวจ context, ทนเลขบรรทัดคลาด, atomic ข้ามไฟล์), รักษา CRLF/encoding, undo ย้อนได้เอง |
-| M3 — Dev loop | git, project runners, process manager | สั่ง test/build จากแชทได้ |
+| M3 — Dev loop ✅ | git, project runners, process manager, `ProcessPort` ทั้ง Windows/POSIX, env allowlist | **เสร็จแล้ว** — 318 tests, core coverage 92%; ฆ่า process ทั้งต้นไม้ได้จริง (มีเทสต์ยืนยันว่า grandchild ตายด้วย) |
 | M4 — Exec + Approval | shell + ตัวสแกนคำสั่ง + คิวอนุมัติ + หน้าต่าง native | คำสั่งอันตรายถูกถาม/ปฏิเสธจริง |
 | M5 — Console UI | การเชื่อมต่อ → โปรเจกต์ → การอนุญาต → กิจกรรม | ตั้งค่าได้โดยไม่แตะไฟล์ config |
 | M6 — Browser | CDP: navigate/click/console/screenshot + web_fetch | ตรวจงานตัวเองได้ (§13) |
