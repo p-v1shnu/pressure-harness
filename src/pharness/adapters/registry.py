@@ -35,10 +35,13 @@ class Adapters:
     """False for a platform that runs but is not a v1 target."""
 
 
-# Capabilities the v1 tool catalogue (PRD 8.2) can be built from.
-_CORE_CAPABILITIES = frozenset(
-    {"files", "search", "patch", "git", "project", "process", "shell", "browser", "web_fetch"}
-)
+# Capabilities the v1 tool catalogue (PRD 8.2) is built from.
+#
+# This lists what is implemented, not what is planned: the tool registry is
+# built from it, and advertising a tool that cannot work costs quota and
+# credibility every time the model tries it (PRD 14.3). `browser` and
+# `web_fetch` join the set in M6.
+_CORE_CAPABILITIES = frozenset({"files", "search", "patch", "git", "project", "process", "shell"})
 
 
 def select_notifier(prefer_window: bool = True):

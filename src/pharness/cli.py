@@ -194,6 +194,52 @@ def cmd_undo(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_serve(args: argparse.Namespace) -> int:
+    """Run the MCP server.
+
+    stdio for a client on this machine, streamable HTTP behind a tunnel for
+    ChatGPT on the web (PRD 7). Same tools either way -- only the entry point
+    differs.
+    """
+    from pharness.core.mcp import build_server
+    from pharness.core.runtime import build_runtime
+
+    runtime = build_runtime(interactive_prompts=not args.no_prompt)
+    server = build_server(runtime)
+
+    if not len(runtime.registry):
+        print(
+            "warning: no workspaces are authorised, so the tools have nothing to work on.\n"
+            "         add one with: ph workspace add <path>",
+            file=sys.stderr,
+        )
+    print(
+        f"serving {runtime.adapters.platform} · prompts via {runtime.queue.notifier.name}",
+        file=sys.stderr,
+    )
+
+    if args.http:
+        print(f"listening on http://{args.host}:{args.port}/mcp", file=sys.stderr)
+        server.run(
+            transport="streamable-http",
+            host=args.host,
+            port=args.port,
+        )
+    else:
+        server.run(transport="stdio")
+    return 0
+
+
+def cmd_stop(args: argparse.Namespace) -> int:
+    from pharness.core.runtime import build_runtime
+
+    result = build_runtime(interactive_prompts=False).emergency_stop()
+    print(
+        f"refused {result['refused']} pending request(s), stopped {result['stopped']} process(es)"
+    )
+    return 0
+
+
 def cmd_doctor(args: argparse.Namespace) -> int:
     adapters = select()
     problems = 0
@@ -259,6 +305,21 @@ def build_parser() -> argparse.ArgumentParser:
     tail = audit_sub.add_parser("tail", help="show recent entries")
     tail.add_argument("count", nargs="?", type=int, default=20)
     tail.set_defaults(func=cmd_audit_tail)
+
+    serve = sub.add_parser("serve", help="run the MCP server")
+    serve.add_argument("--http", action="store_true", help="streamable HTTP instead of stdio")
+    serve.add_argument("--host", default="127.0.0.1")
+    serve.add_argument("--port", type=int, default=18765)
+    serve.add_argument(
+        "--no-prompt",
+        action="store_true",
+        help="never open an approval window; anything needing approval is refused",
+    )
+    serve.set_defaults(func=cmd_serve)
+
+    sub.add_parser(
+        "stop", help="emergency stop: refuse pending requests, kill processes"
+    ).set_defaults(func=cmd_stop)
 
     checkpoints = sub.add_parser("checkpoints", help="list undoable checkpoints")
     checkpoints.add_argument("--workspace")

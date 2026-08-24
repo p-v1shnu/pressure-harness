@@ -154,6 +154,7 @@ ChatGPT รันบน cloud จึงไม่มี "มือ" — อ่า
 | latency | สูงกว่า | ต่ำสุด |
 
 **v1 รองรับทั้งสอง** โดยใช้ tool layer ชุดเดียวกัน ต่างกันแค่ entrypoint
+(ลงมือแล้ว: `ph serve` = stdio, `ph serve --http` = Streamable HTTP)
 
 - โปรโตคอลที่รองรับฝั่ง HTTP: **Streamable HTTP** (หลัก) และ SSE (สำรอง)
 - Pressure Harness เป็นผู้จัดการ tunnel เอง (start/stop/สถานะ อยู่ในแอป) ไม่ให้สคริปต์ภายนอกคุม
@@ -170,6 +171,11 @@ ChatGPT รันบน cloud จึงไม่มี "มือ" — อ่า
 - **registry สร้างตอน runtime** ตาม capability ที่ adapter ของ OS นั้นประกาศ (§14.3)
 - **ทุก tool ประกาศ MCP annotation ตามจริง** (`readOnlyHint` / `destructiveHint` / `idempotentHint`)
 - **ทุก tool รับ `workspace` (optional)** — ถ้าไม่ระบุใช้ค่า active ของ session นั้น (§9.3)
+
+> **สถานะจริงหลัง M7 (บางส่วน):** ลงไปแล้ว 11 tool — `workspace`, `read_file`, `search`,
+> `write_file`, `apply_patch`, `git`, `project`, `shell`, `process`, `notify`, `system`
+> รวม schema + description ประมาณ **5.3 KB ต่อข้อความ** ที่คุยกัน
+> (`browser` และ `web_fetch` ยังไม่ลง จึงยังไม่ประกาศออกไป ตาม §14.3)
 
 ### 8.2 รายการ
 
@@ -709,7 +715,7 @@ autostart  = false
 | M4 — Exec + Approval ⚠️ | shell tool, คิวอนุมัติ, gateway (decide→ask→run→audit), หน้าต่าง Tk, console notifier | **โค้ดเสร็จ 348 tests** แต่ **หน้าต่าง Tk ยังไม่ถูกยืนยันบนเครื่องจริง** (คอนเทนเนอร์ไม่มี display) → ดู [MANUAL-CHECKS.md](MANUAL-CHECKS.md) §1 |
 | M5 — Console UI | การเชื่อมต่อ → โปรเจกต์ → การอนุญาต → กิจกรรม | ตั้งค่าได้โดยไม่แตะไฟล์ config |
 | M6 — Browser | CDP: navigate/click/console/screenshot + web_fetch | ตรวจงานตัวเองได้ (§13) |
-| M7 — Transport | Streamable HTTP + OAuth + tunnel manager + Doctor | ต่อจาก ChatGPT web ได้ |
+| M7 — Transport (บางส่วน) ✅⚠️ | tool catalogue 11 ตัว, gateway ต่อเข้ากับ MCP, `ph serve` ทั้ง stdio และ Streamable HTTP | **stdio + HTTP ใช้งานได้จริงแล้ว** (ทดสอบด้วย client จริง) — **ยังขาด OAuth และตัวจัดการ tunnel** ซึ่งยังอยู่ใน M7 |
 | M8 — Ship | UI ที่เหลือ, แพ็ก, onboarding wizard, เอกสาร | P2 ติดตั้งใช้ได้ใน 10 นาที |
 | M9 — macOS | เขียน `adapters/macos/` ตาม contract test ที่มีอยู่ | — |
 | Phase 2 | desktop automation, GitHub, mobile approval + PIN | — |

@@ -24,7 +24,8 @@ Not usable yet. In progress, milestone by milestone:
 | M2 | file tools: read, search, write, patch, journal and undo | **done** |
 | M3 | git, project runners, process manager, environment allowlist | **done** |
 | M4 | shell tool, approval queue, gateway, Tk prompt | code done; [the window itself is unverified](docs/MANUAL-CHECKS.md) |
-| M5+ | console UI, browser, transport | not started |
+| M7a | MCP server: 11 tools over stdio and streamable HTTP | **done** |
+| next | OAuth and tunnel management, console UI, browser control | not started |
 
 Read [docs/PRD.md](docs/PRD.md) first — it carries the design, the threat
 reasoning, and the milestone plan.
@@ -41,6 +42,22 @@ lint-imports                                       # the platform boundary, enfo
 CI runs the suite on Linux, macOS and Windows from the start, even though v1
 targets Windows only: the core is meant to hold no platform assumptions, and
 that is cheap to verify now and expensive to discover during the macOS port.
+
+## Connect it
+
+```
+ph workspace add ./my-project --alias proj --allow "npm test"
+ph serve                       # stdio, for a client on this machine
+ph serve --http --port 18765   # streamable HTTP, to put behind a tunnel
+ph stop                        # emergency stop
+```
+
+Eleven tools are exposed: workspace, read_file, search, write_file, apply_patch,
+git, project, shell, process, notify, system. Anything not allowlisted prompts
+the owner outside the chat, and some things are refused outright.
+
+OAuth and tunnel management are not built yet, so the HTTP endpoint is for
+local clients until they are.
 
 ## Try the policy engine
 

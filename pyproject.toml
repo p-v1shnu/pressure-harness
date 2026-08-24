@@ -35,6 +35,10 @@ addopts = "-q"
 
 [tool.coverage.run]
 source = ["pharness.core"]
+# The MCP handlers are covered by tests that run the server as a real
+# subprocess, which coverage cannot see from here. Their registration is
+# exercised in-process; the handler bodies are exercised over stdio.
+omit = ["*/core/mcp/server.py"]
 
 [tool.ruff]
 line-length = 100

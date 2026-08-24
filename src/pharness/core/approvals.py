@@ -119,6 +119,12 @@ class ApprovalQueue:
         self._history: list[tuple[ApprovalRequest, Decision]] = []
         self._counter = 0
 
+    @property
+    def notifier(self):
+        """How this queue asks. The console shows it so the user knows whether
+        a prompt can appear at all."""
+        return self._notifier
+
     # -- asking ------------------------------------------------------------
 
     def ask(

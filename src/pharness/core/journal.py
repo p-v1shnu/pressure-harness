@@ -161,9 +161,23 @@ class Journal:
     # -- writing -----------------------------------------------------------
 
     def checkpoint(self, label: str, undoes: str | None = None) -> Recorder:
+        self._ensure_ignored()
         self._pending = self._next_id()
         (self.dir / self._pending / "blobs").mkdir(parents=True, exist_ok=True)
         return Recorder(self, label, undoes)
+
+    def _ensure_ignored(self) -> None:
+        """Keep the journal out of git without touching the project's .gitignore.
+
+        A `.gitignore` inside our own directory is self-contained: nothing in
+        the user's repository has to change, and `git status` does not fill up
+        with our bookkeeping.
+        """
+        marker = self.root / JOURNAL_DIRNAME / ".gitignore"
+        if marker.exists():
+            return
+        marker.parent.mkdir(parents=True, exist_ok=True)
+        marker.write_text("# Pressure Harness working data\n*\n", encoding="utf-8")
 
     @property
     def _pending_id(self) -> str:
