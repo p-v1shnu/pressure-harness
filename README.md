@@ -24,8 +24,9 @@ Not usable yet. In progress, milestone by milestone:
 | M2 | file tools: read, search, write, patch, journal and undo | **done** |
 | M3 | git, project runners, process manager, environment allowlist | **done** |
 | M4 | shell tool, approval queue, gateway, Tk prompt | code done; [the window itself is unverified](docs/MANUAL-CHECKS.md) |
-| M7a | MCP server: 11 tools over stdio and streamable HTTP | **done** |
-| next | OAuth and tunnel management, console UI, browser control | not started |
+| M7a | MCP server: tools over stdio and streamable HTTP | **done** |
+| M6 | browser control over CDP, and web_fetch | **done** |
+| next | OAuth and tunnel management, console UI | not started |
 
 Read [docs/PRD.md](docs/PRD.md) first — it carries the design, the threat
 reasoning, and the milestone plan.
@@ -52,9 +53,13 @@ ph serve --http --port 18765   # streamable HTTP, to put behind a tunnel
 ph stop                        # emergency stop
 ```
 
-Eleven tools are exposed: workspace, read_file, search, write_file, apply_patch,
-git, project, shell, process, notify, system. Anything not allowlisted prompts
-the owner outside the chat, and some things are refused outright.
+Thirteen tools are exposed: workspace, read_file, search, write_file,
+apply_patch, git, project, shell, process, browser, web_fetch, notify, system.
+Anything not allowlisted prompts the owner outside the chat, and some things are
+refused outright.
+
+The browser tool is what lets the agent check its own work rather than hope:
+load the page, click the button, and read the error the page actually threw.
 
 OAuth and tunnel management are not built yet, so the HTTP endpoint is for
 local clients until they are.

@@ -12,6 +12,10 @@ license = "Apache-2.0"
 dependencies = [
     "mcp>=2.0,<3",
     "tomli-w>=1.0",
+    # For the DevTools protocol. Its blocking client keeps the browser tools
+    # synchronous like everything else; the DevTools HTTP endpoints go through
+    # the standard library rather than adding an HTTP dependency too.
+    "websockets>=12",
 ]
 
 [project.optional-dependencies]
@@ -38,7 +42,7 @@ source = ["pharness.core"]
 # The MCP handlers are covered by tests that run the server as a real
 # subprocess, which coverage cannot see from here. Their registration is
 # exercised in-process; the handler bodies are exercised over stdio.
-omit = ["*/core/mcp/server.py"]
+omit = ["*/mcp/server.py"]
 
 [tool.ruff]
 line-length = 100
@@ -53,6 +57,11 @@ select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
 root_packages = ["pharness"]
 include_external_packages = true
 
+# `core/` is domain logic and knows nothing about the machine. The composition
+# root (`runtime.py`) and the transport surface (`mcp/`) sit outside it, because
+# assembling the pieces means naming the platform -- which is exactly what core
+# must not do. This contract is what forced that split, rather than a diagram
+# nobody re-reads.
 [[tool.importlinter.contracts]]
 name = "core must not know about any OS"
 type = "forbidden"

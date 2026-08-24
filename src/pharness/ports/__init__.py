@@ -6,11 +6,13 @@ stray platform import in `core/` fails the build rather than being discovered
 at port time.
 """
 
+from pharness.ports.browser import BrowserPort
 from pharness.ports.paths import PathsPort
 from pharness.ports.process import CompletedProcess, ProcessHandle, ProcessPort
 from pharness.ports.shell import ParsedCommand, ShellParseError, ShellPort
 
 __all__ = [
+    "BrowserPort",
     "CompletedProcess",
     "ParsedCommand",
     "PathsPort",

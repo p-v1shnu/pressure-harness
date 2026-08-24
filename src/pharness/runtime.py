@@ -23,7 +23,9 @@ from pharness.core.journal import Journal
 from pharness.core.policy.engine import PolicyEngine
 from pharness.core.policy.path_jail import PathJail
 from pharness.core.tools import FileTools, GitTools, ProcessTools, ProjectTools, SearchTools
+from pharness.core.tools.browser import BrowserTools
 from pharness.core.tools.shell import ShellTools
+from pharness.core.tools.web import WebTools
 from pharness.core.workspace import Sessions, Workspace, WorkspaceRegistry
 
 
@@ -41,6 +43,7 @@ class Runtime:
     process: object
     env: dict[str, str]
     _journals: dict[str, Journal] = field(default_factory=dict)
+    _browser: BrowserTools | None = field(default=None, repr=False)
 
     # -- per-workspace tools -----------------------------------------------
 
@@ -66,6 +69,30 @@ class Runtime:
             workspace, self.process, self.config.context, self.env, self.adapters.platform
         )
 
+    def browser(self, workspace: Workspace) -> BrowserTools:
+        """One browser session for the whole runtime.
+
+        Reused rather than rebuilt per call, because the console and network
+        logs only mean anything if the connection that collected them is still
+        the one being read.
+        """
+        if self._browser is None:
+            self._browser = BrowserTools(
+                workspace=workspace,
+                context=self.config.context,
+                locator=self.adapters.browser,
+                process=self.process,
+                env=self.env,
+                data_dir=self.adapters.paths.data_dir(),
+                allowlist=tuple(self.config.network.fetch_allowlist),
+            )
+        else:
+            self._browser.workspace = workspace
+        return self._browser
+
+    def web(self) -> WebTools:
+        return WebTools(self.config.context, tuple(self.config.network.fetch_allowlist))
+
     def processes(self) -> ProcessTools:
         return ProcessTools(self.process, self.config.context)
 
@@ -79,6 +106,8 @@ class Runtime:
         """
         refused = self.queue.deny_all("emergency stop")
         stopped = self.process.stop_all()
+        if self._browser is not None:
+            self._browser.close()
         for workspace in self.registry.all():
             workspace.revoke_grant()
         self.audit.append(

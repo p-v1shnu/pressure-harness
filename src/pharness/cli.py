@@ -201,8 +201,8 @@ def cmd_serve(args: argparse.Namespace) -> int:
     ChatGPT on the web (PRD 7). Same tools either way -- only the entry point
     differs.
     """
-    from pharness.core.mcp import build_server
-    from pharness.core.runtime import build_runtime
+    from pharness.mcp import build_server
+    from pharness.runtime import build_runtime
 
     runtime = build_runtime(interactive_prompts=not args.no_prompt)
     server = build_server(runtime)
@@ -231,7 +231,7 @@ def cmd_serve(args: argparse.Namespace) -> int:
 
 
 def cmd_stop(args: argparse.Namespace) -> int:
-    from pharness.core.runtime import build_runtime
+    from pharness.runtime import build_runtime
 
     result = build_runtime(interactive_prompts=False).emergency_stop()
     print(

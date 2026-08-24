@@ -197,6 +197,17 @@ ChatGPT รันบน cloud จึงไม่มี "มือ" — อ่า
 | 13 | `system` | info, health | T0 | CPU/RAM/disk/สถานะ backend |
 | 14 | `notify` | — | T0 | ให้ agent เรียกความสนใจผู้ใช้ที่หน้าเครื่องได้ |
 
+> **เพิ่มตอน M6:** `browser` มี 9 op (launch/navigate/snapshot/click/type/eval/console/network/screenshot)
+> และ `web_fetch` แยกออกมา — รวมเป็น **13 tool** ที่ประกาศออกไป
+>
+> - `browser` จะถูกประกาศ **ก็ต่อเมื่อหา Chrome/Chromium เจอจริงบนเครื่องนั้น** (ตรวจตอน startup)
+> - `snapshot` คืน **ข้อความ + รายการ element ที่กดได้** ไม่ใช่ HTML ดิบ เพราะ HTML ส่วนใหญ่
+>   เป็น attribute กับ closing tag ซึ่งกิน budget มากแต่บอกอะไรน้อย
+> - `screenshot` **บันทึกไฟล์แล้วคืน path** ไม่ส่งรูปเข้าแชท เพราะ OQ-2 ยังไม่มีคำตอบ
+>   (บันทึกไฟล์ใช้ได้แน่ ส่งรูปอาจใช้ไม่ได้)
+> - `web_fetch` **ปฏิเสธ address ในวงในทั้งหมด** รวม loopback — ของในเครื่องให้ใช้ browser
+>   ซึ่งเห็นได้ชัดเจนกว่า และตรวจ IP ใหม่ทุกครั้งที่ redirect เพราะ redirect คือ address ใหม่
+
 ### 8.3 หมายเหตุที่สำคัญต่อความปลอดภัย
 
 - **`project.*` ปลอดภัยแค่เท่าที่ `package.json` ปลอดภัย** — ใครก็แก้ script ให้ทำอะไรก็ได้
@@ -514,6 +525,11 @@ Pressure Harness เป็น *ห้องควบคุม* ไม่ใช�
 > โครงจริงที่ลงมือทำใน M1 อยู่ใต้ `src/pharness/` เพื่อให้ติดตั้งเป็นแพ็กเกจได้
 > (`src/pharness/core`, `src/pharness/ports`, `src/pharness/adapters`, `src/pharness/ui`)
 
+> **แก้โครงตอน M6:** `runtime.py` (ตัวประกอบร่าง) และ `mcp/` (ผิวสัมผัสกับ client)
+> ถูกย้าย**ออกจาก** `core/` ไปอยู่ระดับ `src/pharness/` เพราะการประกอบร่างจำเป็นต้อง
+> เอ่ยชื่อแพลตฟอร์ม ซึ่งเป็นสิ่งที่ `core/` ห้ามทำ — **import-linter เป็นตัวจับได้**
+> ไม่ใช่คนมานั่งทบทวนไดอะแกรม
+
 ```
 core/            ← ไม่รู้จัก OS เลย  (~70-75% ของโค้ด)
   mcp/           protocol, tool registry, session
@@ -714,7 +730,7 @@ autostart  = false
 | M3 — Dev loop ✅ | git, project runners, process manager, `ProcessPort` ทั้ง Windows/POSIX, env allowlist | **เสร็จแล้ว** — 318 tests, core coverage 92%; ฆ่า process ทั้งต้นไม้ได้จริง (มีเทสต์ยืนยันว่า grandchild ตายด้วย) |
 | M4 — Exec + Approval ⚠️ | shell tool, คิวอนุมัติ, gateway (decide→ask→run→audit), หน้าต่าง Tk, console notifier | **โค้ดเสร็จ 348 tests** แต่ **หน้าต่าง Tk ยังไม่ถูกยืนยันบนเครื่องจริง** (คอนเทนเนอร์ไม่มี display) → ดู [MANUAL-CHECKS.md](MANUAL-CHECKS.md) §1 |
 | M5 — Console UI | การเชื่อมต่อ → โปรเจกต์ → การอนุญาต → กิจกรรม | ตั้งค่าได้โดยไม่แตะไฟล์ config |
-| M6 — Browser | CDP: navigate/click/console/screenshot + web_fetch | ตรวจงานตัวเองได้ (§13) |
+| M6 — Browser ✅ | CDP client เขียนเอง + browser tool 9 op + web_fetch | **เสร็จแล้ว** — ทดสอบกับ Chromium จริง: navigate → click → อ่าน `ReferenceError: onSubmit is not defined` ที่หน้าเว็บโยนออกมาจริง → screenshot |
 | M7 — Transport (บางส่วน) ✅⚠️ | tool catalogue 11 ตัว, gateway ต่อเข้ากับ MCP, `ph serve` ทั้ง stdio และ Streamable HTTP | **stdio + HTTP ใช้งานได้จริงแล้ว** (ทดสอบด้วย client จริง) — **ยังขาด OAuth และตัวจัดการ tunnel** ซึ่งยังอยู่ใน M7 |
 | M8 — Ship | UI ที่เหลือ, แพ็ก, onboarding wizard, เอกสาร | P2 ติดตั้งใช้ได้ใน 10 นาที |
 | M9 — macOS | เขียน `adapters/macos/` ตาม contract test ที่มีอยู่ | — |

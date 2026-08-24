@@ -26,9 +26,9 @@ from mcp.types import ToolAnnotations
 from pharness.core.errors import PharnessError
 from pharness.core.policy.engine import Request
 from pharness.core.policy.tiers import Tier
-from pharness.core.runtime import Runtime
 from pharness.core.tools.results import ToolResult
 from pharness.core.workspace import Workspace
+from pharness.runtime import Runtime
 
 INSTRUCTIONS = """\
 Tools for working on code on the user's own machine.
@@ -447,6 +447,85 @@ def build_server(runtime: Runtime, name: str = "pressure-harness") -> MCPServer:
 
         tier, run = actions[op]
         return guarded(ctx, "process", op, tier, {"op": op, "process_id": process_id}, chosen, run)
+
+    if "browser" in capabilities:
+
+        @server.tool(
+            name="browser",
+            description=(
+                "Drive a browser to check your own work. ops: launch, navigate, snapshot, "
+                "click, type, eval, console, network, screenshot. The console is usually "
+                "where the answer is; the screenshot only confirms it."
+            ),
+            annotations=ToolAnnotations(
+                title="Browser", readOnlyHint=False, destructiveHint=False, openWorldHint=True
+            ),
+        )
+        @reported
+        def browser_tool(
+            ctx: Context,
+            op: str = "snapshot",
+            url: str = "",
+            selector: str = "",
+            text: str = "",
+            expression: str = "",
+            name: str = "screenshot.png",
+            headless: bool = False,
+            limit: int = 30,
+            workspace: str | None = None,
+        ) -> str:
+            chosen = resolve(ctx, workspace)
+            browser = runtime.browser(chosen)
+
+            # eval runs arbitrary code in the page, so it is never automatic --
+            # it is the browser's version of an interpreter (PRD 8.3).
+            actions: dict[str, tuple[Tier, Callable[[], ToolResult]]] = {
+                "launch": (Tier.EXEC_ALLOWED, lambda: browser.launch(headless)),
+                "navigate": (Tier.EXEC_ALLOWED, lambda: browser.navigate(url)),
+                "snapshot": (Tier.READ, lambda: browser.snapshot(selector or "body")),
+                "click": (Tier.EXEC_ALLOWED, lambda: browser.click(selector)),
+                "type": (Tier.EXEC_ALLOWED, lambda: browser.type_text(selector, text)),
+                "eval": (Tier.EXEC_OTHER, lambda: browser.evaluate(expression)),
+                "console": (Tier.READ, lambda: browser.console(limit)),
+                "network": (Tier.READ, lambda: browser.network(limit)),
+                "screenshot": (Tier.READ, lambda: browser.screenshot(name)),
+            }
+            if op not in actions:
+                return f"unknown op {op!r}; expected one of {', '.join(actions)}"
+
+            tier, run = actions[op]
+            return guarded(
+                ctx,
+                "browser",
+                op,
+                tier,
+                {"op": op, "url": url, "selector": selector, "expression": expression},
+                chosen,
+                run,
+            )
+
+    if "web_fetch" in capabilities:
+
+        @server.tool(
+            name="web_fetch",
+            description=(
+                "Fetch a URL from this machine. Only hosts the owner allowlisted, and "
+                "never addresses inside the local network. Use the browser for localhost."
+            ),
+            annotations=ToolAnnotations(title="Fetch a URL", readOnlyHint=True, openWorldHint=True),
+        )
+        @reported
+        def web_fetch_tool(ctx: Context, url: str, workspace: str | None = None) -> str:
+            chosen = resolve(ctx, workspace)
+            return guarded(
+                ctx,
+                "web_fetch",
+                None,
+                Tier.EGRESS,
+                {"url": url},
+                chosen,
+                lambda: runtime.web().fetch(url),
+            )
 
     # -- meta ----------------------------------------------------------------
 

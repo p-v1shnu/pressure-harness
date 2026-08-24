@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import sys
 from collections.abc import Sequence
 from pathlib import Path
@@ -19,8 +20,8 @@ from mcp import ClientSession, StdioServerParameters, stdio_client
 
 SERVER_SOURCE = """
 import pathlib
-from pharness.core.mcp import build_server
-from pharness.core.runtime import build_runtime
+from pharness.mcp import build_server
+from pharness.runtime import build_runtime
 runtime = build_runtime(pathlib.Path({config!r}), interactive_prompts=False)
 build_server(runtime).run(transport='stdio')
 """
@@ -35,6 +36,9 @@ def drive(config: Path, calls: Sequence[Call]) -> tuple[list, list[str]]:
         params = StdioServerParameters(
             command=sys.executable,
             args=["-c", SERVER_SOURCE.format(config=str(config))],
+            # A real client inherits the environment, and some capabilities are
+            # decided by what is on PATH.
+            env=dict(os.environ),
         )
         async with (
             stdio_client(params) as (reader, writer),
@@ -175,11 +179,17 @@ def test_a_missing_workspace_is_explained_not_crashed(tmp_path: Path):
 
 
 def test_system_reports_what_is_really_available(config: Path):
+    """The capability line is a statement of fact, not a wish list (PRD 14.3)."""
+    from pharness.adapters import select
+
     _, answers = drive(config, [("system", {})])
     report = answers[0]
+
     assert "capabilities:" in report
-    assert "browser" not in report  # not implemented yet, so not advertised
     assert "chain intact" in report
+
+    has_browser = select().browser.find_executable() is not None
+    assert ("browser" in report) is has_browser
 
 
 # -- built in-process, so the registration code itself is exercised -------------
@@ -189,8 +199,8 @@ def build_in_process(config: Path, capabilities: frozenset[str] | None = None):
     from dataclasses import replace
 
     from pharness.adapters import select
-    from pharness.core.mcp import build_server
-    from pharness.core.runtime import build_runtime
+    from pharness.mcp import build_server
+    from pharness.runtime import build_runtime
 
     adapters = select()
     if capabilities is not None:

@@ -5,6 +5,6 @@ The tool list is built at runtime from what the platform can actually do
 every time the model tries it and gets an error.
 """
 
-from pharness.core.mcp.server import build_server
+from pharness.mcp.server import build_server
 
 __all__ = ["build_server"]

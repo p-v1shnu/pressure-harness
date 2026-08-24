@@ -14,7 +14,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
-from pharness.ports import PathsPort, ProcessPort, ShellPort
+from pharness.ports import BrowserPort, PathsPort, ProcessPort, ShellPort
 
 
 class UnsupportedPlatformError(RuntimeError):
@@ -30,6 +30,7 @@ class Adapters:
     """Built with a log directory rather than eagerly: where child process
     output lands is the caller's decision, and macOS has no implementation to
     construct yet."""
+    browser: BrowserPort
     capabilities: frozenset[str]
     supported: bool
     """False for a platform that runs but is not a v1 target."""
@@ -41,7 +42,21 @@ class Adapters:
 # built from it, and advertising a tool that cannot work costs quota and
 # credibility every time the model tries it (PRD 14.3). `browser` and
 # `web_fetch` join the set in M6.
-_CORE_CAPABILITIES = frozenset({"files", "search", "patch", "git", "project", "process", "shell"})
+_CORE_CAPABILITIES = frozenset(
+    {"files", "search", "patch", "git", "project", "process", "shell", "web_fetch"}
+)
+
+
+def _capabilities(browser: BrowserPort) -> frozenset[str]:
+    """Add `browser` only when there is actually a browser to drive.
+
+    Whether Chrome is installed is a runtime fact, so it is answered at startup
+    rather than assumed. A machine that gains a browser later gains the tool on
+    the next start.
+    """
+    if browser.find_executable() is not None:
+        return _CORE_CAPABILITIES | {"browser"}
+    return _CORE_CAPABILITIES
 
 
 def select_notifier(prefer_window: bool = True):
@@ -68,16 +83,19 @@ def select(platform: str | None = None) -> Adapters:
     key = platform or sys.platform
 
     if key.startswith("win"):
+        from pharness.adapters.shared.browser import BrowserLocator
         from pharness.adapters.windows.paths import WindowsPaths
         from pharness.adapters.windows.process import WindowsProcess
         from pharness.adapters.windows.shell import WindowsShell
 
+        browser = BrowserLocator("windows")
         return Adapters(
             platform="windows",
             paths=WindowsPaths(),
             shell=WindowsShell(),
             process_factory=WindowsProcess,
-            capabilities=_CORE_CAPABILITIES,
+            browser=browser,
+            capabilities=_capabilities(browser),
             supported=True,
         )
 
@@ -88,11 +106,14 @@ def select(platform: str | None = None) -> Adapters:
         def _unavailable(_: Path) -> ProcessPort:
             raise NotImplementedError("macOS support lands in M9; see PRD 14.4")
 
+        from pharness.adapters.shared.browser import BrowserLocator
+
         return Adapters(
             platform="macos",
             paths=MacOSPaths(),
             shell=MacOSShell(),
             process_factory=_unavailable,
+            browser=BrowserLocator("macos"),
             capabilities=frozenset(),
             supported=False,
         )
@@ -104,13 +125,16 @@ def select(platform: str | None = None) -> Adapters:
         from pharness.adapters.posix.paths import PosixPaths
         from pharness.adapters.posix.process import PosixProcess
         from pharness.adapters.posix.shell import PosixShell
+        from pharness.adapters.shared.browser import BrowserLocator
 
+        browser = BrowserLocator("linux")
         return Adapters(
             platform="linux",
             paths=PosixPaths(),
             shell=PosixShell(),
             process_factory=PosixProcess,
-            capabilities=_CORE_CAPABILITIES,
+            browser=browser,
+            capabilities=_capabilities(browser),
             supported=False,
         )
 
