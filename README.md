@@ -15,7 +15,10 @@ outside the chat, and lets you undo what did happen.
 
 ## Status
 
-Not usable yet. In progress, milestone by milestone:
+Every milestone in the v1 scope is built. What is left is verification on a real
+Windows machine — see [docs/MANUAL-CHECKS.md](docs/MANUAL-CHECKS.md) for the
+list, which is deliberately explicit about what "passing CI" does and does not
+prove.
 
 | | | |
 |---|---|---|

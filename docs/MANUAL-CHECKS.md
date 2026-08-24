@@ -59,7 +59,31 @@ python -c "from pharness.adapters import select_notifier; print(select_notifier(
 | T2 | โปรเจกต์ที่ใช้ nvm / pnpm / corepack ยังรันได้ | |
 | T3 | โปรเจกต์ Python ที่มี venv ยังรัน pytest ได้ | |
 
-## 5. M0 spike — ยังค้างอยู่
+## 5. Console — ยืนยันแล้วบางส่วน ✅
+
+คอนโซลถูกทำเป็น local web app จึง**เปิดดูและถ่ายภาพหน้าจอได้ในระบบทดสอบแล้ว**
+ทั้ง 8 หน้า และ API ทุก endpoint มีเทสต์ครอบ สิ่งที่ยังต้องลองด้วยมือคือ:
+
+| # | สิ่งที่ต้องยืนยัน | ผล |
+|---|---|---|
+| C1 | เปิดคอนโซลจากเบราว์เซอร์บน Windows แล้วหน้าตาไม่เพี้ยน (ฟอนต์/ธีมมืด) | |
+| C2 | กด "Stop everything" แล้ว process จริงหยุดหมด | |
+| C3 | ตอบ approval จากคอนโซลขณะที่หน้าต่าง Tk ก็เด้งอยู่ → ต้องปิดทั้งคู่ | |
+| C4 | เปิด URL คอนโซลจากเครื่องอื่นในวง LAN → ต้องถูกปฏิเสธ (403) | |
+
+## 6. OAuth + tunnel — ยืนยันแล้ว ✅ (ยกเว้น tunnel จริง)
+
+flow OAuth ครบทุกขั้นถูกทดสอบกับ server จริงแล้ว (discovery → DCR → consent →
+PKCE → token → refresh rotation) และหน้า consent ถูก render + ถ่ายภาพแล้ว
+ส่วนที่ยังไม่ได้ลองของจริง:
+
+| # | สิ่งที่ต้องยืนยัน | ผล |
+|---|---|---|
+| O1 | `ph serve --http --tunnel` กับ cloudflared ตัวจริง → ได้ URL และ ChatGPT ต่อได้ | |
+| O2 | ลงทะเบียน connector ใน ChatGPT Developer mode แล้ว OAuth ผ่านจริง | |
+| O3 | ปิดแล้วเปิด server ใหม่ → ChatGPT ยังต่อได้โดยไม่ต้อง pair ใหม่ | |
+
+## 7. M0 spike — ยังค้างอยู่
 
 ดู [M0-SPIKE.md](M0-SPIKE.md) §7 ตารางการทดลอง (OQ-1 ถึง OQ-4)
 
