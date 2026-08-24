@@ -24,6 +24,7 @@ from pharness.core.config import ContextSettings
 from pharness.core.text import clamp
 from pharness.core.tools.results import ToolResult
 from pharness.core.workspace import Workspace
+from pharness.ports import ProcessStartError
 
 LOAD_SETTLE_SEC = 0.4
 MAX_TEXT_CHARS = 4000
@@ -84,7 +85,17 @@ class BrowserTools:
         if headless:
             argv.insert(1, "--headless=new")
 
-        handle = self.process.spawn(argv, self.workspace.root, self.env, label="browser")
+        # Extra flags come from the environment rather than being baked in.
+        # Containers usually need --no-sandbox, and the sandbox is a real
+        # boundary: weakening it for everyone to make one setup work is the
+        # wrong trade. Whoever needs it asks for it.
+        extra = self.env.get("PHARNESS_BROWSER_ARGS", "").split()
+        argv[1:1] = extra
+
+        try:
+            handle = self.process.spawn(argv, self.workspace.root, self.env, label="browser")
+        except ProcessStartError as exc:
+            return ToolResult.failure(str(exc))
 
         deadline = time.monotonic() + 15
         while time.monotonic() < deadline:
@@ -97,7 +108,14 @@ class BrowserTools:
             except CdpError:
                 time.sleep(0.25)
 
-        return ToolResult.failure("the browser started but never opened a debugging port")
+        # Say why. The browser prints a precise reason ("Running as root without
+        # --no-sandbox is not supported") and hiding it leaves the user with
+        # nothing to act on.
+        reason = handle.tail(12).strip()
+        message = "the browser started but never opened a debugging port"
+        if reason:
+            message += f"\nit said:\n{reason}"
+        return ToolResult.failure(message)
 
     def _connect(self) -> CdpSession:
         if self._session is not None and not self._session._closed.is_set():

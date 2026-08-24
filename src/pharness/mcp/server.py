@@ -80,8 +80,23 @@ def reported(fn):
     return wrapper
 
 
-def build_server(runtime: Runtime, name: str = "pressure-harness") -> MCPServer:
-    server = MCPServer(name=name, version="0.1.0", instructions=INSTRUCTIONS)
+def build_server(
+    runtime: Runtime,
+    name: str = "pressure-harness",
+    auth_provider: Any = None,
+    auth_settings: Any = None,
+) -> MCPServer:
+    server = MCPServer(
+        name=name,
+        version="0.1.0",
+        instructions=INSTRUCTIONS,
+        auth_server_provider=auth_provider,
+        auth=auth_settings,
+    )
+    if auth_provider is not None:
+        from pharness.mcp.auth import register_consent_page
+
+        register_consent_page(server, auth_provider)
     capabilities = runtime.adapters.capabilities
 
     def resolve(ctx: Context, workspace: str | None) -> Workspace:

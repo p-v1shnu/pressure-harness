@@ -18,6 +18,15 @@ from pathlib import Path
 from typing import Protocol, runtime_checkable
 
 
+class ProcessStartError(Exception):
+    """A process could not be started at all.
+
+    Distinct from a process that ran and failed: "npm is not installed" and
+    "the tests failed" need different answers, and collapsing them into one
+    error makes both harder to act on.
+    """
+
+
 @dataclass(frozen=True)
 class CompletedProcess:
     argv: tuple[str, ...]

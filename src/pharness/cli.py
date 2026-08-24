@@ -205,7 +205,61 @@ def cmd_serve(args: argparse.Namespace) -> int:
     from pharness.runtime import build_runtime
 
     runtime = build_runtime(interactive_prompts=not args.no_prompt)
-    server = build_server(runtime)
+
+    tunnel = None
+    tunnel_url = None
+    if args.http and args.tunnel:
+        from pharness.core.tunnel import TunnelError, TunnelManager
+
+        tunnel = TunnelManager(
+            runtime.process,
+            runtime.adapters.paths.data_dir(),
+            runtime.env,
+            provider=args.tunnel_provider,
+        )
+        try:
+            status = tunnel.start(args.port)
+        except TunnelError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 1
+        tunnel_url = status.url
+        print(f"tunnel: {status.summary}", file=sys.stderr)
+
+    auth_provider = auth_settings = None
+    pairing_code = None
+    if args.http:
+        # HTTP always requires OAuth. There is no flag to turn it off: an
+        # endpoint reachable through a tunnel with no authentication is a
+        # machine anyone who learns the URL can use (PRD 10.6). For an
+        # unauthenticated local connection, use stdio.
+        from mcp.server.auth.settings import (
+            AuthSettings,
+            ClientRegistrationOptions,
+            RevocationOptions,
+        )
+
+        from pharness.core.auth import AuthStore
+        from pharness.mcp.auth import PairingOAuthProvider
+
+        # Whatever clients actually reach, which is the tunnel when there is
+        # one: OAuth metadata that advertises an unreachable issuer fails in a
+        # way that is very hard to read from the client side.
+        public_url = (args.public_url or tunnel_url or f"http://{args.host}:{args.port}").rstrip(
+            "/"
+        )
+        store = AuthStore(runtime.adapters.paths.data_dir())
+        store.load()
+        pairing_code = store.pairing_code
+
+        auth_provider = PairingOAuthProvider(store, public_url)
+        auth_settings = AuthSettings(
+            issuer_url=public_url,
+            resource_server_url=public_url,
+            client_registration_options=ClientRegistrationOptions(enabled=True),
+            revocation_options=RevocationOptions(enabled=True),
+        )
+
+    server = build_server(runtime, auth_provider=auth_provider, auth_settings=auth_settings)
 
     if not len(runtime.registry):
         print(
@@ -220,6 +274,17 @@ def cmd_serve(args: argparse.Namespace) -> int:
 
     if args.http:
         print(f"listening on http://{args.host}:{args.port}/mcp", file=sys.stderr)
+        if pairing_code:
+            print(
+                "\n"
+                "  ┌──────────────────────────────────────────────┐\n"
+                f"  │  pairing code:   {pairing_code}                  │\n"
+                "  └──────────────────────────────────────────────┘\n"
+                "  Type this on the approval page when a client connects.\n"
+                "  Anyone who reaches the tunnel sees that page; only someone\n"
+                "  looking at this console has the code.\n",
+                file=sys.stderr,
+            )
         server.run(
             transport="streamable-http",
             host=args.host,
@@ -228,6 +293,45 @@ def cmd_serve(args: argparse.Namespace) -> int:
     else:
         server.run(transport="stdio")
     return 0
+
+
+def cmd_auth(args: argparse.Namespace) -> int:
+    """Inspect and manage what may connect.
+
+    Separate from the server process on purpose: revoking a client should not
+    need the thing you are revoking access to.
+    """
+    from pharness.core.auth import AuthStore
+
+    store = AuthStore(select().paths.data_dir())
+    store.load()
+
+    if args.auth_command == "code":
+        print(store.pairing_code)
+        return 0
+
+    if args.auth_command == "rotate":
+        print(f"new pairing code: {store.rotate_pairing_code()}")
+        print("clients already authorised keep working; new ones need this code")
+        return 0
+
+    if args.auth_command == "clients":
+        clients = store.clients()
+        if not clients:
+            print("nothing has been authorised yet")
+            return 0
+        for client_id, name in clients:
+            print(f"{client_id}  {name}")
+        return 0
+
+    if args.auth_command == "revoke":
+        if store.forget_client(args.client_id):
+            print(f"revoked {args.client_id}; its tokens stop working immediately")
+            return 0
+        print(f"no client {args.client_id!r}", file=sys.stderr)
+        return 1
+
+    return 2
 
 
 def cmd_stop(args: argparse.Namespace) -> int:
@@ -310,12 +414,27 @@ def build_parser() -> argparse.ArgumentParser:
     serve.add_argument("--http", action="store_true", help="streamable HTTP instead of stdio")
     serve.add_argument("--host", default="127.0.0.1")
     serve.add_argument("--port", type=int, default=18765)
+    serve.add_argument("--tunnel", action="store_true", help="publish through a tunnel")
+    serve.add_argument("--tunnel-provider", default="cloudflared", choices=["cloudflared", "ngrok"])
+    serve.add_argument(
+        "--public-url",
+        help="the URL clients reach this server on, e.g. your tunnel address",
+    )
     serve.add_argument(
         "--no-prompt",
         action="store_true",
         help="never open an approval window; anything needing approval is refused",
     )
     serve.set_defaults(func=cmd_serve)
+
+    auth = sub.add_parser("auth", help="manage which clients may connect")
+    auth_sub = auth.add_subparsers(dest="auth_command", required=True)
+    auth_sub.add_parser("code", help="print the pairing code").set_defaults(func=cmd_auth)
+    auth_sub.add_parser("rotate", help="issue a new pairing code").set_defaults(func=cmd_auth)
+    auth_sub.add_parser("clients", help="list authorised clients").set_defaults(func=cmd_auth)
+    revoke = auth_sub.add_parser("revoke", help="revoke a client and its tokens")
+    revoke.add_argument("client_id")
+    revoke.set_defaults(func=cmd_auth)
 
     sub.add_parser(
         "stop", help="emergency stop: refuse pending requests, kill processes"

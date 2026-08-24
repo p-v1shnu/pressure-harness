@@ -158,6 +158,9 @@ ChatGPT รันบน cloud จึงไม่มี "มือ" — อ่า
 
 - โปรโตคอลที่รองรับฝั่ง HTTP: **Streamable HTTP** (หลัก) และ SSE (สำรอง)
 - Pressure Harness เป็นผู้จัดการ tunnel เอง (start/stop/สถานะ อยู่ในแอป) ไม่ให้สคริปต์ภายนอกคุม
+  — ลงมือแล้วใน M7 (`ph serve --http --tunnel`) และเหตุผลที่ต้องทำเองชัดขึ้นตอนเขียน:
+  **OAuth issuer ต้องเป็น URL ที่ client เข้าถึงได้จริง** ถ้าแอปไม่รู้ที่อยู่ของตัวเอง
+  metadata จะประกาศ URL ที่เข้าไม่ถึง ซึ่ง debug จากฝั่ง client ยากมาก
 - ค่าเริ่มต้น bind `127.0.0.1` เท่านั้น ไม่ bind `0.0.0.0` ไม่ว่ากรณีใด
 
 ---
@@ -357,6 +360,23 @@ ChatGPT ยอมให้ตั้ง connector แบบ *no authentication* �
 - ถือว่า **tunnel URL เป็นความลับ ไม่ใช่ระบบป้องกัน**
 - บันทึกทุก request ที่เข้ามา (IP, เวลา, ผลการ auth) และแสดงในหน้า Connection
 - ปุ่มหมุน secret / เพิกถอน client ได้ทันที
+
+**สิ่งที่ลงมือทำใน M7 — และคำถามที่ยากที่สุดของข้อนี้**
+
+OAuth ตอบได้แค่ว่า "client นี้ได้รับอนุญาตแล้ว" แต่ **ใครเป็นคนอนุญาต?**
+หน้า consent อยู่หลัง tunnel แปลว่า *ใครก็ตามที่รู้ URL เปิดหน้านั้นได้*
+
+คำตอบที่ใช้: **pairing code ที่พิมพ์อยู่บนคอนโซลของเครื่องนั้นเอง**
+ใครก็เปิดหน้า consent ได้ แต่มีแค่คนที่เข้าถึงเครื่องได้เท่านั้นที่อ่านโค้ดได้ —
+เป็นหลักการเดียวกับการอนุมัติ tool call นอกแชท เอามาใช้กับตัวการเชื่อมต่อเอง
+
+- โค้ด 8 ตัวอักษร ไม่มี `O/0/I/1/l` เพราะคนต้องอ่านจากจอแล้วพิมพ์ในมือถือ
+- เดาผิด 5 ครั้ง = ล็อก 5 นาที (เดา 8 ตัวต้องลองเยอะ ล็อกทำให้การลองมีต้นทุน)
+- **โค้ดอยู่ข้ามการ restart** — ระบบความปลอดภัยที่ต้องทำใหม่ทุกครั้งคือระบบที่คนจะปิดทิ้ง
+- refresh token ใช้ได้ครั้งเดียว (single-use) — ถ้าถูกขโมยจะใช้ได้แค่จนกว่า client ตัวจริงจะ refresh
+  ซึ่งเป็นจังหวะที่การขโมยจะปรากฏตัว
+- `ph auth clients` / `ph auth revoke` **ทำงานแยกจาก server** — การเพิกถอนสิทธิ์
+  ไม่ควรต้องพึ่งสิ่งที่กำลังจะถูกเพิกถอน
 
 ### 10.7 หน้าต่างขออนุมัติ
 
@@ -731,7 +751,7 @@ autostart  = false
 | M4 — Exec + Approval ⚠️ | shell tool, คิวอนุมัติ, gateway (decide→ask→run→audit), หน้าต่าง Tk, console notifier | **โค้ดเสร็จ 348 tests** แต่ **หน้าต่าง Tk ยังไม่ถูกยืนยันบนเครื่องจริง** (คอนเทนเนอร์ไม่มี display) → ดู [MANUAL-CHECKS.md](MANUAL-CHECKS.md) §1 |
 | M5 — Console UI | การเชื่อมต่อ → โปรเจกต์ → การอนุญาต → กิจกรรม | ตั้งค่าได้โดยไม่แตะไฟล์ config |
 | M6 — Browser ✅ | CDP client เขียนเอง + browser tool 9 op + web_fetch | **เสร็จแล้ว** — ทดสอบกับ Chromium จริง: navigate → click → อ่าน `ReferenceError: onSubmit is not defined` ที่หน้าเว็บโยนออกมาจริง → screenshot |
-| M7 — Transport (บางส่วน) ✅⚠️ | tool catalogue 11 ตัว, gateway ต่อเข้ากับ MCP, `ph serve` ทั้ง stdio และ Streamable HTTP | **stdio + HTTP ใช้งานได้จริงแล้ว** (ทดสอบด้วย client จริง) — **ยังขาด OAuth และตัวจัดการ tunnel** ซึ่งยังอยู่ใน M7 |
+| M7 — Transport ✅ | tool catalogue 13 ตัว, gateway ต่อเข้ากับ MCP, `ph serve` (stdio / HTTP), **OAuth 2.1 + pairing code**, ตัวจัดการ tunnel | **เสร็จแล้ว** — เดิน OAuth ครบทุกขั้นกับ server จริง: discovery → DCR → consent → PKCE → token → refresh rotation |
 | M8 — Ship | UI ที่เหลือ, แพ็ก, onboarding wizard, เอกสาร | P2 ติดตั้งใช้ได้ใน 10 นาที |
 | M9 — macOS | เขียน `adapters/macos/` ตาม contract test ที่มีอยู่ | — |
 | Phase 2 | desktop automation, GitHub, mobile approval + PIN | — |

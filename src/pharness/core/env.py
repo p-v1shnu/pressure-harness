@@ -68,6 +68,11 @@ TOOLCHAIN_KEYS = (
     "GOROOT",
     "JAVA_HOME",
     "DOTNET_ROOT",
+    # Ours: where the browser is and how to launch it. Containers generally
+    # need --no-sandbox, which is not something to enable for everyone.
+    "PHARNESS_BROWSER",
+    "PHARNESS_BROWSER_ARGS",
+    "PLAYWRIGHT_BROWSERS_PATH",
 )
 
 # Never forwarded even if the user allowlists them by name: these change what a

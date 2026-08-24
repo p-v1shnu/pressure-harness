@@ -33,6 +33,17 @@ has_browser = pytest.mark.skipif(
 )
 
 
+def launchable(tools: BrowserTools) -> str | None:
+    """Return why a browser cannot be driven here, or None.
+
+    Finding an executable is not the same as being able to run it: a container
+    running as root refuses to start Chrome without --no-sandbox. Skipping with
+    the browser's own reason beats a failure that looks like our bug.
+    """
+    result = tools.launch(headless=True)
+    return None if result.ok else result.text
+
+
 @pytest.fixture
 def browser(tmp_path: Path) -> BrowserTools:
     adapters = select()
@@ -100,14 +111,22 @@ def test_navigating_off_the_allowlist_is_refused(browser: BrowserTools):
 # -- a real browser ------------------------------------------------------------
 
 
+@pytest.fixture
+def running_browser(browser: BrowserTools) -> BrowserTools:
+    reason = launchable(browser)
+    if reason:
+        pytest.skip(f"a browser could not be started here: {reason.splitlines()[0]}")
+    return browser
+
+
 @has_browser
-def test_the_whole_loop(browser: BrowserTools):
+def test_the_whole_loop(running_browser: BrowserTools):
     """The reason browser control is in scope at all (PRD 13).
 
     Load the page, press the button, and read the error the page really threw
     rather than guessing whether the change worked.
     """
-    assert browser.launch(headless=True).ok
+    browser = running_browser
 
     page = (browser.workspace.root / "index.html").as_uri()
     loaded = browser.navigate(page)
@@ -134,16 +153,16 @@ def test_the_whole_loop(browser: BrowserTools):
 
 
 @has_browser
-def test_a_missing_selector_is_reported(browser: BrowserTools):
-    browser.launch(headless=True)
+def test_a_missing_selector_is_reported(running_browser: BrowserTools):
+    browser = running_browser
     browser.navigate((browser.workspace.root / "index.html").as_uri())
     assert not browser.click("#not-there").ok
     assert not browser.type_text("#not-there", "x").ok
 
 
 @has_browser
-def test_eval_returns_values_and_reports_exceptions(browser: BrowserTools):
-    browser.launch(headless=True)
+def test_eval_returns_values_and_reports_exceptions(running_browser: BrowserTools):
+    browser = running_browser
     browser.navigate((browser.workspace.root / "index.html").as_uri())
 
     assert "Checkout" in browser.evaluate("document.title").text
@@ -154,15 +173,15 @@ def test_eval_returns_values_and_reports_exceptions(browser: BrowserTools):
 
 
 @has_browser
-def test_launching_twice_reuses_the_running_browser(browser: BrowserTools):
-    browser.launch(headless=True)
+def test_launching_twice_reuses_the_running_browser(running_browser: BrowserTools):
+    browser = running_browser
     again = browser.launch(headless=True)
     assert again.ok and again.meta["started"] is False
 
 
 @has_browser
-def test_network_failures_are_visible(browser: BrowserTools):
-    browser.launch(headless=True)
+def test_network_failures_are_visible(running_browser: BrowserTools):
+    browser = running_browser
     browser.navigate((browser.workspace.root / "index.html").as_uri())
     browser.evaluate("fetch('http://127.0.0.1:9/missing').catch(() => {})")
     time.sleep(0.6)
@@ -170,10 +189,9 @@ def test_network_failures_are_visible(browser: BrowserTools):
 
 
 @has_browser
-def test_a_page_that_did_not_load_is_reported_as_a_failure(browser: BrowserTools):
+def test_a_page_that_did_not_load_is_reported_as_a_failure(running_browser: BrowserTools):
     """Saying "loaded" when nothing loaded sends the model hunting the wrong bug."""
-    browser.launch(headless=True)
-    result = browser.navigate("http://127.0.0.1:9/never-listening")
+    result = running_browser.navigate("http://127.0.0.1:9/never-listening")
     assert not result.ok
     assert "did not load" in result.text
     assert "dev server" in result.text

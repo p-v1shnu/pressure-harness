@@ -17,7 +17,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 
-from pharness.ports.process import CompletedProcess
+from pharness.ports.process import CompletedProcess, ProcessStartError
 
 TAIL_BLOCK = 64 * 1024
 
@@ -165,16 +165,21 @@ class BaseProcessAdapter(ABC):
 
         # stdin is closed: a child that waits for input would hang forever with
         # nobody able to type at it.
-        with log_path.open("wb") as sink:
-            popen = subprocess.Popen(
-                list(argv),
-                cwd=str(cwd),
-                env=dict(env),
-                stdout=sink,
-                stderr=subprocess.STDOUT,
-                stdin=subprocess.DEVNULL,
-                **self._spawn_kwargs(),
-            )
+        try:
+            with log_path.open("wb") as sink:
+                popen = subprocess.Popen(
+                    list(argv),
+                    cwd=str(cwd),
+                    env=dict(env),
+                    stdout=sink,
+                    stderr=subprocess.STDOUT,
+                    stdin=subprocess.DEVNULL,
+                    **self._spawn_kwargs(),
+                )
+        except FileNotFoundError as exc:
+            raise ProcessStartError(f"{argv[0]}: not found on PATH") from exc
+        except OSError as exc:
+            raise ProcessStartError(f"could not start {argv[0]}: {exc}") from exc
 
         handle = BaseHandle(process_id, popen, argv, log_path, label or argv[0], self._kill_tree)
         self._handles[process_id] = handle

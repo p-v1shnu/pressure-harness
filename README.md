@@ -26,7 +26,8 @@ Not usable yet. In progress, milestone by milestone:
 | M4 | shell tool, approval queue, gateway, Tk prompt | code done; [the window itself is unverified](docs/MANUAL-CHECKS.md) |
 | M7a | MCP server: tools over stdio and streamable HTTP | **done** |
 | M6 | browser control over CDP, and web_fetch | **done** |
-| next | OAuth and tunnel management, console UI | not started |
+| M7 | OAuth with a pairing code, and tunnel management | **done** |
+| next | console UI | not started |
 
 Read [docs/PRD.md](docs/PRD.md) first — it carries the design, the threat
 reasoning, and the milestone plan.
@@ -48,10 +49,18 @@ that is cheap to verify now and expensive to discover during the macOS port.
 
 ```
 ph workspace add ./my-project --alias proj --allow "npm test"
-ph serve                       # stdio, for a client on this machine
-ph serve --http --port 18765   # streamable HTTP, to put behind a tunnel
-ph stop                        # emergency stop
+ph serve                            # stdio, for a client on this machine
+ph serve --http --tunnel            # published, with OAuth and a pairing code
+ph auth code                        # the code that approves a new connection
+ph auth clients / ph auth revoke    # who has access, and taking it away
+ph stop                             # emergency stop
 ```
+
+Over HTTP, OAuth is not optional and there is no flag to turn it off — an
+endpoint behind a tunnel with no authentication is a machine anyone who learns
+the URL can use. Approving a new client needs the pairing code printed on that
+machine's console: anyone can reach the consent page, only someone at the
+keyboard can read the code.
 
 Thirteen tools are exposed: workspace, read_file, search, write_file,
 apply_patch, git, project, shell, process, browser, web_fetch, notify, system.

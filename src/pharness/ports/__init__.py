@@ -8,7 +8,12 @@ at port time.
 
 from pharness.ports.browser import BrowserPort
 from pharness.ports.paths import PathsPort
-from pharness.ports.process import CompletedProcess, ProcessHandle, ProcessPort
+from pharness.ports.process import (
+    CompletedProcess,
+    ProcessHandle,
+    ProcessPort,
+    ProcessStartError,
+)
 from pharness.ports.shell import ParsedCommand, ShellParseError, ShellPort
 
 __all__ = [
@@ -18,6 +23,7 @@ __all__ = [
     "PathsPort",
     "ProcessHandle",
     "ProcessPort",
+    "ProcessStartError",
     "ShellParseError",
     "ShellPort",
 ]

@@ -20,7 +20,7 @@ from pharness.core.config import ContextSettings
 from pharness.core.text import clamp
 from pharness.core.tools.results import ToolResult
 from pharness.core.workspace import Workspace
-from pharness.ports import ProcessPort
+from pharness.ports import ProcessPort, ProcessStartError
 
 TASKS = ("dev", "test", "lint", "typecheck", "build", "install")
 DEFAULT_TIMEOUT = 600.0
@@ -143,7 +143,10 @@ class ProjectTools:
 
         argv, why = resolved
         argv = self._with_executable(argv)
-        handle = self.process.spawn(argv, self.workspace.root, self.env, label="dev")
+        try:
+            handle = self.process.spawn(argv, self.workspace.root, self.env, label="dev")
+        except ProcessStartError as exc:
+            return ToolResult.failure(str(exc))
 
         url = self._wait_for_url(handle)
         lines = [f"started {handle.id}: {' '.join(argv)}", f"({why})", f"pid {handle.pid}"]
