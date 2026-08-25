@@ -122,7 +122,7 @@ jobs:
           mkdir -p sbom
           cyclonedx-py requirements requirements/runtime.lock -o sbom/pharness-runtime.cdx.json
 
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: sbom
           path: sbom/
@@ -210,7 +210,7 @@ jobs:
           if [ -f ph.exe ]; then sha256sum ph.exe > SHA256SUMS; else sha256sum ph > SHA256SUMS; fi
           cat SHA256SUMS
 
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ph-${{ matrix.os }}
           path: |
