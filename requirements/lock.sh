@@ -1,16 +1,22 @@
 #!/usr/bin/env bash
 # Regenerate the lock files from pyproject.toml.
 #
-# --generate-hashes is the point: without it a lock pins a version number, and a
-# version number is a label someone else controls.
+# Two things matter here and both were learned the hard way.
+#
+# --generate-hashes: without it a lock pins a version number, and a version
+# number is a label someone else controls.
+#
+# --universal: a resolver run on Linux produces a Linux lock. pytest needs
+# colorama on Windows and nothing else does, so a Linux-resolved lock simply
+# omits it -- and --require-hashes then refuses to install it, so pytest dies at
+# import on every Windows runner. A universal resolution keeps every platform's
+# dependencies with the markers that select them.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 compile() {
-    # --allow-unsafe pins setuptools too. The name is misleading: leaving it
-    # unpinned is what is unsafe, because pip then resolves it freshly at
-    # install time, unhashed, in a file whose whole purpose is that nothing is.
-    pip-compile --quiet --generate-hashes --strip-extras --allow-unsafe \
+    uv pip compile --quiet --universal --generate-hashes --no-strip-markers \
+        --python-version 3.11 \
         --output-file "requirements/$1.lock" "${@:2}"
 }
 

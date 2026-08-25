@@ -8,6 +8,10 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    # Ten pull requests opening at once starved the runner pool and every job
+    # that could not get one failed rather than queueing. A weekly trickle is
+    # the point; a weekly flood is not.
+    open-pull-requests-limit: 2
     commit-message:
       prefix: "ci"
 
@@ -17,6 +21,7 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    open-pull-requests-limit: 3
     commit-message:
       prefix: "deps"
     groups:

@@ -154,6 +154,9 @@ jobs:
     name: executable / ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     needs: [supply-chain]
+    # Two more runners on every dependency bump, to prove something a dependency
+    # bump rarely changes. The tests still run on those pull requests.
+    if: github.actor != 'dependabot[bot]'
     strategy:
       fail-fast: false
       matrix:

@@ -1,5 +1,5 @@
 # Supply-chain checks only. Kept apart from dev so a vulnerability scanner's own
 # dependency tree does not become part of what is being scanned.
-pip-tools>=7.4
+uv>=0.5
 pip-audit>=2.7
 cyclonedx-bom>=4.4
