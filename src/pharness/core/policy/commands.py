@@ -120,6 +120,145 @@ INTERPRETERS = frozenset(
     }
 )
 
+# Container runtimes. They deserve their own rules because a container is a way
+# to run a command with different rules than the host's -- which is exactly the
+# thing this policy engine exists to decide. Judging `docker` as one opaque
+# program means `docker exec api rm -rf /` reads as harmless.
+CONTAINER_PROGRAMS = frozenset({"docker", "podman", "docker-compose", "nerdctl"})
+
+# Subcommands that only look. Nothing here lowers their tier -- the user's
+# allowlist does that, exactly as it does for `git status` -- but naming them
+# means the suggested allowlist in the docs is not guesswork.
+CONTAINER_READ_SUBS = frozenset(
+    {"ps", "images", "logs", "inspect", "top", "stats", "version", "info", "port", "config"}
+)
+
+# Nouns that take their own verb: `docker system prune`, `docker volume rm`.
+# Reading only the first word sees "system", which says nothing at all.
+CONTAINER_NOUNS = frozenset(
+    {"system", "volume", "image", "container", "network", "builder", "buildx"}
+)
+
+# Verbs that destroy data nothing here can put back. The journal covers files;
+# it has never covered a volume.
+CONTAINER_DESTRUCTIVE = frozenset({"prune", "rm"})
+
+# Flags that appear before the verb and consume the next word.
+CONTAINER_GLOBAL_VALUE_FLAGS = frozenset(
+    {
+        "-h",
+        "--host",
+        "-c",
+        "--context",
+        "--config",
+        "-l",
+        "--log-level",
+        "--tlscacert",
+        "--tlscert",
+        "--tlskey",
+        "-f",
+        "--file",
+        "-p",
+        "--project-name",
+        "--project-directory",
+        "--profile",
+        "--env-file",
+    }
+)
+
+# Pointing the client at another daemon acts on a different machine entirely.
+CONTAINER_REMOTE_FLAGS = frozenset({"-h", "--host", "-c", "--context"})
+
+# Flags that hand the container the host. Any one of them means the container
+# boundary -- and therefore every boundary above it -- no longer applies.
+CONTAINER_ESCAPE_FLAGS = frozenset(
+    {
+        "--privileged",
+        "--pid=host",
+        "--ipc=host",
+        "--uts=host",
+        "--userns=host",
+        "--network=host",
+        "--net=host",
+        "--cgroupns=host",
+        "--security-opt=seccomp=unconfined",
+        "--security-opt=apparmor=unconfined",
+    }
+)
+CONTAINER_ESCAPE_VALUES = frozenset(
+    {"host", "seccomp=unconfined", "apparmor=unconfined", "seccomp:unconfined"}
+)
+CONTAINER_ESCAPE_PAIRED = frozenset(
+    {"--pid", "--ipc", "--uts", "--userns", "--network", "--net", "--cgroupns", "--security-opt"}
+)
+
+# Host paths that must never be mounted into a container.
+FORBIDDEN_MOUNT_SOURCES = (
+    "/",
+    "/etc",
+    "/root",
+    "/home",
+    "/var",
+    "/usr",
+    "/boot",
+    "/proc",
+    "/sys",
+)
+
+# Credential directories, matched by name anywhere in the source. `$HOME/.ssh`
+# is not expanded by this parser, so matching the tail is what catches it -- and
+# mounting a directory is a read of everything under it.
+SENSITIVE_MOUNT_NAMES = (".ssh", ".aws", ".gnupg", ".kube", ".docker", ".azure", ".env")
+
+# Flags on run/exec that take a separate value, so the value is not the image.
+CONTAINER_VALUE_FLAGS = frozenset(
+    {
+        "-u",
+        "--user",
+        "-w",
+        "--workdir",
+        "-e",
+        "--env",
+        "--env-file",
+        "-v",
+        "--volume",
+        "--mount",
+        "-p",
+        "--publish",
+        "--name",
+        "--network",
+        "--net",
+        "--entrypoint",
+        "--label",
+        "-l",
+        "--add-host",
+        "--device",
+        "--restart",
+        "--platform",
+        "--pull",
+        "--security-opt",
+        "--cap-add",
+        "--cap-drop",
+        "--tmpfs",
+        "--ulimit",
+        "--memory",
+        "-m",
+        "--cpus",
+        "--health-cmd",
+        "--log-driver",
+        "--ipc",
+        "--pid",
+        "--uts",
+        "--userns",
+        "--cgroupns",
+        "--build-arg",
+        "-f",
+        "--file",
+        "--index",
+        "--profile",
+    }
+)
+
 # Wrappers that run something else. The real program is further along the line.
 WRAPPERS = frozenset(
     {"env", "nohup", "time", "timeout", "nice", "stdbuf", "command", "builtin", "exec", "xargs"}
@@ -228,6 +367,199 @@ def _git_finding(args: Sequence[str]) -> Finding | None:
     if sub == "tag" and flags & {"-d", "--delete"}:
         return Finding(Tier.FORBIDDEN, "deleting a tag removes a release marker", "git tag")
     return None
+
+
+def _mount_sources(args: Sequence[str]) -> list[str]:
+    """Host paths a run/create would mount, from -v, --volume and --mount."""
+    sources: list[str] = []
+    rest = list(args)
+    while rest:
+        token = rest.pop(0)
+        value = None
+        if token in ("-v", "--volume", "--mount") and rest:
+            value = rest.pop(0)
+        elif token.startswith(("-v=", "--volume=", "--mount=")):
+            value = token.split("=", 1)[1]
+        if not value:
+            continue
+
+        if value.startswith("type="):  # --mount type=bind,source=/x,target=/y
+            for part in value.split(","):
+                if part.startswith(("source=", "src=")):
+                    sources.append(part.split("=", 1)[1])
+        else:  # -v /host:/container[:opts]
+            head = value.split(":", 1)[0]
+            looks_like_path = head.startswith(("/", "~", ".", "$")) or (
+                len(head) > 1 and head[1] == ":"
+            )
+            if looks_like_path:
+                sources.append(head)
+    return sources
+
+
+def _escape_flags(args: Sequence[str]) -> list[str]:
+    """Flags that give the container the host's namespaces or privileges."""
+    found: list[str] = []
+    rest = list(args)
+    while rest:
+        token = rest.pop(0)
+        lowered = token.lower()
+        if lowered in CONTAINER_ESCAPE_FLAGS:
+            found.append(token)
+        elif lowered in CONTAINER_ESCAPE_PAIRED and rest:
+            value = rest.pop(0)
+            if value.lower() in CONTAINER_ESCAPE_VALUES:
+                found.append(f"{token} {value}")
+    return found
+
+
+def _inner_command(args: Sequence[str], subcommand: str) -> list[str]:
+    """The command a run/exec would execute inside the container.
+
+    Returns [] when it cannot be identified with confidence, which leaves the
+    call at its usual tier rather than guessing something reassuring.
+    """
+    rest = list(args)
+    # Drop everything up to and including the subcommand (handles `compose exec`).
+    while rest and rest[0] != subcommand:
+        rest.pop(0)
+    if rest:
+        rest.pop(0)
+
+    while rest:
+        token = rest[0]
+        if not token.startswith("-"):
+            rest.pop(0)  # the image or container name
+            return rest
+        rest.pop(0)
+        if token in CONTAINER_VALUE_FLAGS and rest:
+            rest.pop(0)
+        elif token == "--":
+            return rest
+    return []
+
+
+def container_verb(args: Sequence[str]) -> str:
+    """The word that says what a container command actually does.
+
+    `docker compose down`, `docker system prune` and `docker volume rm` all hide
+    their verb behind a noun, so a check that reads the first word sees
+    "compose", "system" and "volume" -- none of which mean anything.
+    """
+    words: list[str] = []
+    rest = list(args)
+    while rest:
+        token = rest.pop(0)
+        if token.startswith("-"):
+            # Global flags come before the verb, and several take a value:
+            # `docker -H tcp://host image prune` would otherwise read as a
+            # command called "tcp://host".
+            if token.lower() in CONTAINER_GLOBAL_VALUE_FLAGS and rest:
+                rest.pop(0)
+            continue
+        words.append(token)
+
+    for index, word in enumerate(words):
+        lowered = word.lower()
+        if lowered == "compose" or lowered in CONTAINER_NOUNS:
+            return words[index + 1].lower() if index + 1 < len(words) else lowered
+        return lowered
+    return ""
+
+
+def _container_finding(program: str, args: Sequence[str]) -> list[Finding]:
+    """Judge a container command by what it would actually do."""
+    findings: list[Finding] = []
+    sub = container_verb(args)
+    words = [a.lower() for a in args]
+
+    for index, token in enumerate(args):
+        if token.lower() in CONTAINER_REMOTE_FLAGS and index + 1 < len(args):
+            findings.append(
+                Finding(
+                    Tier.EGRESS,
+                    "this targets a different Docker host, so it acts on another machine",
+                    args[index + 1],
+                )
+            )
+
+    if any("docker.sock" in a for a in words):
+        findings.append(
+            Finding(
+                Tier.FORBIDDEN,
+                "handing over the Docker socket is handing over the machine",
+                program,
+            )
+        )
+
+    escapes = _escape_flags(args)
+    if escapes:
+        findings.append(
+            Finding(
+                Tier.FORBIDDEN,
+                "this gives the container the host, so no boundary above it applies",
+                escapes[0],
+            )
+        )
+
+    for source in _mount_sources(args):
+        normalised = source.rstrip("/") or "/"
+        if normalised in FORBIDDEN_MOUNT_SOURCES or normalised.endswith(":\\"):
+            findings.append(
+                Finding(
+                    Tier.FORBIDDEN,
+                    "mounting this into a container reaches around the workspace entirely",
+                    source,
+                )
+            )
+        elif any(name in source for name in SENSITIVE_MOUNT_NAMES):
+            findings.append(
+                Finding(
+                    Tier.FORBIDDEN,
+                    "mounting a credential directory hands its contents to the container",
+                    source,
+                )
+            )
+        else:
+            findings.append(
+                Finding(Tier.EXEC_OTHER, "mounts a host directory into the container", source)
+            )
+
+    # Deleting volumes destroys data the journal has never covered.
+    volumes_flagged = any(flag in words for flag in ("-v", "--volumes", "--volume"))
+    touches_volumes = "volume" in words
+
+    if sub in CONTAINER_DESTRUCTIVE and (touches_volumes or volumes_flagged):
+        findings.append(
+            Finding(
+                Tier.FORBIDDEN,
+                "this removes volumes, and the data in them is not something anything "
+                "here can restore",
+                f"{program} {sub}",
+            )
+        )
+    elif sub == "down" and volumes_flagged:
+        findings.append(
+            Finding(
+                Tier.FORBIDDEN,
+                "`down -v` deletes the project's volumes, database included",
+            )
+        )
+    elif sub == "prune":
+        findings.append(
+            Finding(Tier.EXEC_OTHER, "pruning removes containers and images", f"{program} prune")
+        )
+
+    if sub in ("pull", "push", "build"):
+        findings.append(
+            Finding(
+                Tier.EGRESS,
+                "fetches or publishes images, and a build runs whatever the Dockerfile says",
+                f"{program} {sub}",
+            )
+        )
+
+    return findings
 
 
 def _guard_tamper(argv: Sequence[str]) -> Finding | None:
@@ -352,6 +684,29 @@ def classify(
         installer = _installer_finding(program, args)
         if installer:
             findings.append(installer)
+
+        if program in CONTAINER_PROGRAMS:
+            findings.extend(_container_finding(program, args))
+
+            # A command run inside a container is still a command. `docker exec
+            # api rm -rf /` reads as harmless until you look past the first word.
+            sub = container_verb(args)
+            if sub in ("run", "exec", "create"):
+                inner = _inner_command(args, sub)
+                if inner:
+                    nested = classify(" ".join(inner), shell=shell, file_exists=None)
+                    for finding in nested.findings:
+                        # "not allowlisted" is about the host's allowlist and
+                        # does not describe the inner command.
+                        interesting = finding.tier >= Tier.EXEC_OTHER
+                        if interesting and "not allowlisted" not in finding.reason:
+                            findings.append(
+                                Finding(
+                                    finding.tier,
+                                    f"inside the container: {finding.reason}",
+                                    finding.detail,
+                                )
+                            )
 
         for target in cmd.overwrite_targets:
             already_there = file_exists(target) if file_exists else False

@@ -102,6 +102,22 @@ ph undo                        # restore the last checkpoint
 ph undo 0002                   # undo is journaled too, so this reverses an undo
 ```
 
+## Containers
+
+Docker and Compose work through the shell tool, and the policy engine reads them
+properly rather than as one opaque word:
+
+```
+docker compose exec api npm run migrate     # allowlist it, and it just runs
+docker compose down                         # asks
+docker compose down -v                      # refused: that deletes your volumes
+docker run -v /:/host alpine sh             # refused: that reaches around everything
+docker exec api rm -rf /                    # refused: the inner command is judged too
+```
+
+Note what is *not* covered: the journal keeps pre-images of files, never of
+database volumes. A migration that goes wrong cannot be undone from here.
+
 ## Security
 
 [SECURITY.md](SECURITY.md) says what is in scope and what each boundary is

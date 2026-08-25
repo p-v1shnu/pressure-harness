@@ -211,6 +211,28 @@ ChatGPT รันบน cloud จึงไม่มี "มือ" — อ่า
 > - `web_fetch` **ปฏิเสธ address ในวงในทั้งหมด** รวม loopback — ของในเครื่องให้ใช้ browser
 >   ซึ่งเห็นได้ชัดเจนกว่า และตรวจ IP ใหม่ทุกครั้งที่ redirect เพราะ redirect คือ address ใหม่
 
+### 8.2b คำสั่ง container กับ allowlist ที่แนะนำ
+
+`docker` ไม่ได้ถูกลดระดับให้อัตโนมัติ — เหมือน `git status` ที่ต้องใส่ allowlist เอง
+เพราะการลด tier เป็นการตัดสินใจของผู้ใช้ ไม่ใช่ของตัวสแกน ชุดที่แนะนำสำหรับงานประจำวัน:
+
+```toml
+allow_commands = [
+  "docker ps", "docker images", "docker inspect", "docker logs",
+  "docker compose ps", "docker compose logs", "docker compose up",
+  "docker compose exec",          # ครอบ migration ที่รันในคอนเทนเนอร์
+]
+```
+
+`docker start/stop/restart`, `docker rm`, `docker compose down` (ไม่มี `-v`) → **ถาม**
+`docker pull/push/build` → **ถาม (T4)** เพราะ build รันอะไรก็ได้ตามที่ Dockerfile บอก
+`docker -H tcp://...` / `--context` → **T4** เพราะกำลังสั่งงานเครื่องอื่น
+
+> **ข้อจำกัดที่ต้องรู้: migration ย้อนกลับไม่ได้**
+> journal เก็บ pre-image ของไฟล์เท่านั้น ไม่ได้ dump database
+> `docker compose exec api npm run migrate` ที่ผิดพลาด **undo ไม่ได้ด้วยเครื่องมือนี้**
+> ทางที่ถูกคือ backup ก่อน migrate หรือใช้ migration ที่มี `down` ของตัวเอง
+
 ### 8.3 หมายเหตุที่สำคัญต่อความปลอดภัย
 
 - **`project.*` ปลอดภัยแค่เท่าที่ `package.json` ปลอดภัย** — ใครก็แก้ script ให้ทำอะไรก็ได้
@@ -307,6 +329,11 @@ active workspace ผูกกับ **session** ไม่ใช่ตัวแ�
 
 **T5 มีอะไรบ้าง** (ปิดตายในโค้ด ไม่มีปุ่มเปิด):
 
+> **เพิ่มหลัง v1: container runtime** (`docker`, `podman`, `nerdctl`)
+> — container คือวิธี*รันคำสั่งด้วยกฎที่ต่างจาก host* ซึ่งเป็นสิ่งเดียวกับที่ policy engine
+> มีไว้ตัดสิน การมองว่า `docker` เป็นโปรแกรมทึบตัวหนึ่งทำให้ `docker exec api rm -rf /`
+> อ่านออกมาเป็นคำที่ไม่มีพิษภัยสองคำ
+
 - path นอก workspace, `..` หลุดออก, symlink/junction ชี้ออกนอก (ตรวจหลัง `realpath`)
 - ไฟล์ลับ: `.env*`, `~/.ssh`, `~/.aws`, `~/.config/gh`, `.git/config`, โปรไฟล์เบราว์เซอร์
 - **config และ audit log ของ Pressure Harness เอง**
@@ -318,6 +345,16 @@ active workspace ผูกกับ **session** ไม่ใช่ตัวแ�
   เดิมเขียนว่า "บน branch หลัก" แต่ตอน classify เรายังไม่รู้ว่าอยู่ branch ไหน
   (ต้องเรียก git ก่อน ซึ่งทำให้ตัวตัดสินไม่ pure) จึงห้ามทั้งหมด — ทางเลือกที่ปลอดภัยคือ `git stash`
 - คำสั่งที่ปิดกลไกป้องกันของ Pressure Harness เอง
+- **docker/podman ที่ยกเครื่องให้ container**: `--privileged`, `--pid=host`, `--userns=host`,
+  `--security-opt seccomp=unconfined` — ถ้าให้ host ไปแล้ว ขอบเขตทุกชั้นเหนือขึ้นไปก็ไม่มีความหมาย
+- **mount ที่เอื้อมข้าม workspace**: `-v /:/host`, `/etc`, `/root`, `/var` และ
+  **directory ที่เก็บ credential** (`~/.ssh`, `.aws`, `.gnupg`, `.kube`) —
+  จับด้วยชื่อ ไม่ใช่ path เต็ม เพราะ `$HOME/.ssh` ไม่ถูก expand โดย parser ของเรา
+- **mount `docker.sock`** — ยกซ็อกเก็ตให้ = ยกเครื่องให้
+- **ลบ volume**: `docker volume rm/prune`, `compose down -v`, `system prune --volumes`
+  — journal ของเราเก็บ pre-image ของ*ไฟล์* **ไม่เคยครอบ volume** ข้อมูล database ที่หายไปคือหายจริง
+- **คำสั่งอันตรายที่ซ่อนอยู่ข้างใน container** — `docker exec api rm -rf /`
+  ถูกแกะออกมา classify ซ้ำ
 
 **v1 ไม่มี tool ลบไฟล์เลย** — ตรงตามข้อกำหนด "เพิ่ม-อัปเดต-แก้ไขได้ ยกเว้นลบ"
 แต่บังคับที่ชั้นโค้ด ไม่ใช่ที่ prompt
