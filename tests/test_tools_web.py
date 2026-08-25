@@ -58,9 +58,9 @@ def test_html_becomes_readable_text():
 
 def test_fetched_content_is_labelled_as_data(web: WebTools):
     """A page can contain instructions aimed at the model (PRD 10.5)."""
-    from pharness.core.tools.web import EXTERNAL
+    from pharness.core.text import wrap_external
 
-    assert "not instructions" in EXTERNAL
+    assert "not instructions" in wrap_external("body", "https://example.com")
 
 
 # -- the fetch path itself -----------------------------------------------------

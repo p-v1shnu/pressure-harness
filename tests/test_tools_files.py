@@ -78,7 +78,9 @@ def test_read_of_a_huge_file_returns_an_outline(tools: FileTools):
 
 def test_write_creates_a_file(tools: FileTools):
     assert tools.write("src/new.ts", "export const n = 1\n").ok
-    assert tools.read("src/new.ts").text.endswith("export const n = 1")
+    # Contained rather than at the end: file contents come back inside a marker
+    # saying they are data (see wrap_external).
+    assert "export const n = 1" in tools.read("src/new.ts").text
 
 
 def test_write_will_not_replace_by_accident(tools: FileTools):

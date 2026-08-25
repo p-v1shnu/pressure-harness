@@ -151,6 +151,10 @@ database volumes. A migration that goes wrong cannot be undone from here.
 
 ## Security
 
+[docs/LLM-RISKS.md](docs/LLM-RISKS.md) is an audit against the OWASP Top 10 for
+LLM Applications, written as a record of what the audit *changed* rather than a
+table claiming a pass. Two of the ten were broken when it was run.
+
 [SECURITY.md](SECURITY.md) says what is in scope and what each boundary is
 actually worth. [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md) sets out who might
 attack this and what stops them — including the gaps, and one hole that a review

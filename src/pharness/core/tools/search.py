@@ -16,7 +16,7 @@ from pathlib import Path
 
 from pharness.core.config import ContextSettings
 from pharness.core.policy.path_jail import PathJail
-from pharness.core.text import clamp, looks_binary
+from pharness.core.text import clamp, looks_binary, wrap_external
 from pharness.core.tools.results import ToolResult
 from pharness.core.workspace import Workspace
 
@@ -153,6 +153,6 @@ class SearchTools:
 
         excerpt = clamp(body, self.context.max_output_bytes)
         return ToolResult(
-            text=excerpt.text,
+            text=wrap_external(excerpt.text, "matching lines in this project"),
             meta={"hits": len(hits), "files_scanned": scanned, "capped": capped},
         )

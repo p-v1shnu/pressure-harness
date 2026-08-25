@@ -15,7 +15,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
 from pharness.core.config import ContextSettings
-from pharness.core.text import clamp
+from pharness.core.text import clamp, wrap_external
 from pharness.core.tools.results import ToolResult
 from pharness.core.workspace import Workspace
 from pharness.ports import CompletedProcess, ProcessPort
@@ -44,9 +44,10 @@ class GitTools:
             message = "git did not finish in time"
         return ToolResult.failure(clamp(message, self.context.max_output_bytes).text)
 
-    def _ok(self, text: str, **meta: object) -> ToolResult:
+    def _ok(self, text: str, external: str = "", **meta: object) -> ToolResult:
         excerpt = clamp(text.strip() or "(no output)", self.context.max_output_bytes)
-        return ToolResult(text=excerpt.text, meta={"truncated": excerpt.truncated, **meta})
+        body = wrap_external(excerpt.text, external) if external else excerpt.text
+        return ToolResult(text=body, meta={"truncated": excerpt.truncated, **meta})
 
     def current_branch(self) -> str:
         """`--show-current` rather than `rev-parse HEAD`, which has no answer
@@ -112,20 +113,28 @@ class GitTools:
         result = self._run(*args, "--", path)
         if not result.ok:
             return self._fail(result)
-        return self._ok(result.stdout or f"no changes in {path}", path=path)
+        return self._ok(
+            result.stdout or f"no changes in {path}", external=f"the diff of {path}", path=path
+        )
 
     def log(self, limit: int = 20) -> ToolResult:
         if (problem := self._require_repository()) is not None:
             return problem
         limit = max(1, min(limit, 200))
+        # Commit messages are written by whoever wrote the repository, which in
+        # a cloned project is not the user (threat model A3).
         result = self._run("log", f"-{limit}", "--pretty=format:%h %ad %an: %s", "--date=short")
-        return self._ok(result.stdout) if result.ok else self._fail(result)
+        return (
+            self._ok(result.stdout, external="commit messages") if result.ok else self._fail(result)
+        )
 
     def show(self, ref: str = "HEAD") -> ToolResult:
         if (problem := self._require_repository()) is not None:
             return problem
         result = self._run("show", "--stat", ref)
-        return self._ok(result.stdout) if result.ok else self._fail(result)
+        return (
+            self._ok(result.stdout, external=f"commit {ref}") if result.ok else self._fail(result)
+        )
 
     def branches(self) -> ToolResult:
         if (problem := self._require_repository()) is not None:

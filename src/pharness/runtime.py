@@ -170,7 +170,7 @@ def build_runtime(
         engine=engine,
         queue=queue,
         audit=audit,
-        gateway=Gateway(engine, queue, audit),
+        gateway=Gateway(engine, queue, audit, redactor=redactor),
         process=process,
         env=build_env(os.environ, adapters.platform),
     )

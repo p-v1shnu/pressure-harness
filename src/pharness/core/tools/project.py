@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from pharness.core.config import ContextSettings
-from pharness.core.text import clamp
+from pharness.core.text import clamp, wrap_external
 from pharness.core.tools.results import ToolResult
 from pharness.core.workspace import Workspace
 from pharness.ports import ProcessPort, ProcessStartError
@@ -137,7 +137,9 @@ class ProjectTools:
                 + clamp(result.combined, self.context.max_output_bytes // 2).text
             )
 
-        body = clamp(result.combined, self.context.max_output_bytes).text
+        body = wrap_external(
+            clamp(result.combined, self.context.max_output_bytes).text, f"the {task} output"
+        )
         text = f"{header}exit {result.exit_code} in {result.duration_sec:.1f}s\n\n{body}"
         return ToolResult(
             text=text,

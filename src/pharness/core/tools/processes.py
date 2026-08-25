@@ -11,7 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from pharness.core.config import ContextSettings
-from pharness.core.text import clamp
+from pharness.core.text import clamp, wrap_external
 from pharness.core.tools.results import ToolResult
 from pharness.ports import ProcessPort
 
@@ -45,7 +45,8 @@ class ProcessTools:
         excerpt = clamp(body, self.context.max_output_bytes)
         state = "running" if handle.is_running() else f"exited {handle.exit_code()}"
         return ToolResult(
-            text=f"{process_id} ({state}), last {lines} lines:\n{excerpt.text}",
+            text=f"{process_id} ({state}), last {lines} lines:\n"
+            + wrap_external(excerpt.text, f"output of {process_id}"),
             meta={"process_id": process_id, "running": handle.is_running()},
         )
 

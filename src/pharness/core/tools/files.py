@@ -16,7 +16,13 @@ from pharness.core.errors import PathJailError
 from pharness.core.journal import Journal, sha256_bytes
 from pharness.core.patch import AppliedFile, PatchError, apply_file_patch, parse_patch
 from pharness.core.policy.path_jail import PathJail
-from pharness.core.text import BinaryFileError, outline, read_text_file, slice_lines
+from pharness.core.text import (
+    BinaryFileError,
+    outline,
+    read_text_file,
+    slice_lines,
+    wrap_external,
+)
 from pharness.core.tools.results import ToolResult
 from pharness.core.workspace import Workspace
 
@@ -73,7 +79,7 @@ class FileTools:
             )
 
         excerpt = slice_lines(file, offset, limit, self.context.max_output_bytes)
-        text = excerpt.text
+        text = wrap_external(excerpt.text, f"file {path}")
         if excerpt.next_offset is not None:
             text += f"\n\n[{line_count} lines total; continue from offset {excerpt.next_offset}]"
 

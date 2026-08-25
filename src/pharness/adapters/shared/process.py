@@ -21,6 +21,12 @@ from pharness.ports.process import CompletedProcess, ProcessStartError
 
 TAIL_BLOCK = 64 * 1024
 
+# A ceiling on processes we are holding open at once. Not a performance limit:
+# a loop that spawns dev servers is a plausible way for a confused or steered
+# agent to make a machine unusable, and there is no legitimate reason for one
+# conversation to need dozens (OWASP LLM10, unbounded consumption).
+MAX_RUNNING = 12
+
 
 class BaseHandle:
     def __init__(
@@ -158,6 +164,13 @@ class BaseProcessAdapter(ABC):
         env: Mapping[str, str],
         label: str = "",
     ) -> BaseHandle:
+        running = len(self.list_running())
+        if running >= MAX_RUNNING:
+            raise ProcessStartError(
+                f"{running} processes are already running, which is the limit. "
+                "Stop something first."
+            )
+
         self._counter += 1
         process_id = f"p{self._counter}"
         self._log_dir.mkdir(parents=True, exist_ok=True)

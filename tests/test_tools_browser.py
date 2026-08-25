@@ -16,7 +16,7 @@ from pharness.adapters import select
 from pharness.adapters.shared.browser import BrowserLocator
 from pharness.core.config import ContextSettings, parse_config
 from pharness.core.env import build_env
-from pharness.core.tools.browser import EXTERNAL, BrowserTools, _is_local
+from pharness.core.tools.browser import BrowserTools, _is_local
 from pharness.core.workspace import WorkspaceRegistry
 
 PAGE = (
@@ -91,7 +91,9 @@ def test_local_addresses_are_recognised(url: str, local: bool):
 
 def test_page_content_is_labelled_as_data():
     """A page the model was told to open can contain instructions (PRD 10.5)."""
-    assert "not instructions" in EXTERNAL
+    from pharness.core.text import wrap_external
+
+    assert "not instructions" in wrap_external("body", "the page")
 
 
 def test_a_missing_browser_is_reported_not_raised(tmp_path: Path, browser: BrowserTools):

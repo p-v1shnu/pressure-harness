@@ -13,9 +13,10 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from dataclasses import replace as _replace
 
 from pharness.core.approvals import ApprovalQueue, Outcome
-from pharness.core.audit import AuditLog
+from pharness.core.audit import AuditLog, Redactor
 from pharness.core.policy.engine import Decision, PolicyEngine, Request, Verdict
 from pharness.core.policy.rules import Rule
 from pharness.core.tools.results import ToolResult
@@ -30,6 +31,13 @@ class Gateway:
     queue: ApprovalQueue
     audit: AuditLog
     clock: Clock = utc_now
+    redactor: Redactor | None = None
+    """Applied to every result before it leaves.
+
+    The audit log was redacted first and the conversation was not, which is
+    backwards: the log stays on this machine, and the conversation is uploaded
+    to a third party the moment a tool returns (PRD 10.5).
+    """
 
     def call(self, request: Request, workspace: Workspace, run: Runner) -> ToolResult:
         now = self.clock()
@@ -109,6 +117,13 @@ class Gateway:
             self._record(request, workspace, verdict, "error", f"{type(exc).__name__}: {exc}")
             raise
 
+        removed: tuple[str, ...] = ()
+        if self.redactor is not None and result.text:
+            redaction = self.redactor.redact(result.text)
+            if redaction.changed:
+                result = _replace(result, text=redaction.text)
+                removed = redaction.kinds
+
         duration = (self.clock() - started).total_seconds()
         # Every byte here is pasted into the conversation and re-sent with every
         # later message. Counting it is the only way to know whether the quota
@@ -121,6 +136,7 @@ class Gateway:
             result.text[:200],
             duration_sec=round(duration, 3),
             output_bytes=len(result.text.encode("utf-8")),
+            redacted=list(removed) or None,
         )
         return result
 

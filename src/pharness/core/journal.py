@@ -160,8 +160,15 @@ class Journal:
 
     # -- writing -----------------------------------------------------------
 
+    keep_days: int = 14
+    max_bytes: int = 500 * 1024 * 1024
+
     def checkpoint(self, label: str, undoes: str | None = None) -> Recorder:
         self._ensure_ignored()
+        # Pruning here rather than on a timer: this is the only moment the
+        # journal grows, and a limit nobody enforces is a comment.
+        if self.size_bytes() > self.max_bytes:
+            self.prune(keep_days=self.keep_days, max_bytes=self.max_bytes)
         self._pending = self._next_id()
         (self.dir / self._pending / "blobs").mkdir(parents=True, exist_ok=True)
         return Recorder(self, label, undoes)

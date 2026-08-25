@@ -14,7 +14,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 
 from pharness.core.config import ContextSettings
-from pharness.core.text import clamp
+from pharness.core.text import clamp, wrap_external
 from pharness.core.tools.results import ToolResult
 from pharness.core.workspace import Workspace
 from pharness.ports import ProcessPort
@@ -51,7 +51,9 @@ class ShellTools:
                 timed_out=True,
             )
 
-        body = clamp(result.combined, self.context.max_output_bytes).text
+        body = wrap_external(
+            clamp(result.combined, self.context.max_output_bytes).text, "the command's output"
+        )
         return ToolResult(
             text=f"$ {command}\nexit {result.exit_code} in {result.duration_sec:.1f}s\n\n{body}",
             ok=result.ok,
