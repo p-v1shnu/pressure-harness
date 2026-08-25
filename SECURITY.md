@@ -56,9 +56,13 @@ its publisher can move, and Dependabot raises a pull request when a pin falls
 behind so that pinning does not turn into staleness.
 
 Released executables carry a SHA256 so you can check the file you have is the
-file CI produced. They are not code-signed yet, which is a cost decision, not a
-technicality: a checksum proves the file was not altered in transit, a signature
-would prove who built it.
+file CI produced. They are deliberately not code-signed: this is distributed
+within a circle who already know its author, so identity comes from how the file
+reached you rather than from a certificate. That is a scope decision, and it
+would need revisiting if the project were ever published openly.
+
+The checksum only helps if it reaches you by a different route than the file
+did. Sent together in one chat, it proves nothing to anyone who has that chat.
 
 ## Deliberate design decisions
 
