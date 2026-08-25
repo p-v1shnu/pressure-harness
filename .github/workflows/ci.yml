@@ -76,3 +76,63 @@ jobs:
       - name: Self-test
         working-directory: spike
         run: python probe.py
+
+  # A frozen binary is what "give it to someone else" actually means: a git
+  # clone and a working Python are not an installation. Built on every push so
+  # a packaging break is caught with the change that caused it, rather than on
+  # release day.
+  build:
+    name: executable / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install . pyinstaller
+
+      - name: Build
+        working-directory: packaging
+        run: pyinstaller --clean --noconfirm --distpath ./dist --workpath ./build pharness.spec
+
+      # The build succeeding proves nothing: a missing hidden import only shows
+      # up when the binary runs. These commands touch the config loader, the
+      # adapters, the audit log and the policy engine.
+      - name: Smoke test (unix)
+        if: runner.os != 'Windows'
+        working-directory: packaging/dist
+        run: |
+          ./ph --help
+          ./ph doctor
+          ./ph check npm test
+          ./ph check -- docker compose down -v | grep -q DENY
+
+      - name: Smoke test (windows)
+        if: runner.os == 'Windows'
+        working-directory: packaging/dist
+        shell: pwsh
+        run: |
+          .\ph.exe --help
+          .\ph.exe doctor
+          .\ph.exe check npm test
+          $verdict = .\ph.exe check -- docker compose down -v | Out-String
+          if ($verdict -notmatch "DENY") { throw "the frozen build did not carry the policy" }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ph-${{ matrix.os }}
+          path: |
+            packaging/dist/ph
+            packaging/dist/ph.exe
+          if-no-files-found: error
+          retention-days: 14

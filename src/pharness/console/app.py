@@ -92,6 +92,7 @@ def build_console_app(api: ConsoleApi, token: str) -> Starlette:
         Route("/api/approvals/history", endpoint(api.history)),
         Route("/api/rules", endpoint(api.rules)),
         Route("/api/activity", endpoint(api.activity)),
+        Route("/api/context-usage", endpoint(api.context_usage)),
         Route("/api/checkpoints", endpoint(api.checkpoints)),
         Route("/api/processes", endpoint(api.processes)),
         Route("/api/process-logs", endpoint(api.process_logs)),

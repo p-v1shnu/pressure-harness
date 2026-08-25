@@ -120,6 +120,9 @@ class WorkspaceConfig(BaseModel):
     git_push: bool = False
     allow_commands: list[str] = Field(default_factory=list)
     scripts: dict[str, str] = Field(default_factory=dict)
+    delegates: dict[str, str] = Field(default_factory=dict)
+    """Other coding agents this workspace may hand work to, as command
+    templates containing {task}. See core.tools.delegate."""
 
     @field_validator("alias")
     @classmethod
@@ -155,6 +158,7 @@ class Config(BaseModel):
     security: SecuritySettings = Field(default_factory=SecuritySettings)
     context: ContextSettings = Field(default_factory=ContextSettings)
     network: NetworkSettings = Field(default_factory=NetworkSettings)
+    delegates: dict[str, str] = Field(default_factory=dict)
     tunnel: TunnelSettings = Field(default_factory=TunnelSettings)
     workspaces: list[WorkspaceConfig] = Field(default_factory=list, alias="workspace")
 

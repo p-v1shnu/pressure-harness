@@ -35,6 +35,18 @@ prove.
 Read [docs/PRD.md](docs/PRD.md) first — it carries the design, the threat
 reasoning, and the milestone plan.
 
+## Installing
+
+CI builds a single-file executable for Windows and Linux on every push, smoke
+tests it, and uploads it as an artifact. To build one yourself:
+
+```
+python -m pip install . pyinstaller
+cd packaging && pyinstaller --clean --noconfirm pharness.spec
+```
+
+The result is one file with no Python needed on the target machine.
+
 ## Development
 
 ```
@@ -70,8 +82,9 @@ the URL can use. Approving a new client needs the pairing code printed on that
 machine's console: anyone can reach the consent page, only someone at the
 keyboard can read the code.
 
-Thirteen tools are exposed: workspace, read_file, search, write_file,
-apply_patch, git, project, shell, process, browser, web_fetch, notify, system.
+Fourteen tools are exposed: workspace, read_file, search, write_file,
+apply_patch, git, project, shell, process, browser, web_fetch, codex_run,
+notify, system.
 Anything not allowlisted prompts the owner outside the chat, and some things are
 refused outright.
 
@@ -101,6 +114,24 @@ ph checkpoints                 # what changed, grouped by task
 ph undo                        # restore the last checkpoint
 ph undo 0002                   # undo is journaled too, so this reverses an undo
 ```
+
+## Handing work to another agent
+
+`codex_run` passes a task to a coding CLI already on the machine — Codex CLI,
+Claude Code — so the heavy work happens locally and only the result comes back
+into the conversation. That is the cheapest thing this project can do for a
+quota.
+
+```toml
+[workspace.delegates]
+codex = "codex exec {task}"
+claude = "claude -p {task}"
+```
+
+It is never automatic and never allowlistable. A delegate is an agent with its
+own permissions: nothing it does passes through the rules here, so the approval
+prompt carries the whole task and the exact command, and that is the last point
+at which anything on this side decides anything.
 
 ## Containers
 

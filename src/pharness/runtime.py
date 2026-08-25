@@ -24,6 +24,7 @@ from pharness.core.policy.engine import PolicyEngine
 from pharness.core.policy.path_jail import PathJail
 from pharness.core.tools import FileTools, GitTools, ProcessTools, ProjectTools, SearchTools
 from pharness.core.tools.browser import BrowserTools
+from pharness.core.tools.delegate import DelegateTools
 from pharness.core.tools.shell import ShellTools
 from pharness.core.tools.web import WebTools
 from pharness.core.workspace import Sessions, Workspace, WorkspaceRegistry
@@ -92,6 +93,17 @@ class Runtime:
 
     def web(self) -> WebTools:
         return WebTools(self.config.context, tuple(self.config.network.fetch_allowlist))
+
+    def delegate(self, workspace: Workspace) -> DelegateTools:
+        """Workspace templates win over global ones: a project may need a
+        different agent, or different flags, than the machine's default."""
+        return DelegateTools(
+            workspace,
+            self.process,
+            self.config.context,
+            self.env,
+            templates={**self.config.delegates, **workspace.config.delegates},
+        )
 
     def processes(self) -> ProcessTools:
         return ProcessTools(self.process, self.config.context)

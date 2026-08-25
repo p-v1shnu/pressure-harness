@@ -8,7 +8,7 @@ from this machine, and several of them do things no tool is ever allowed to do.
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from pharness.core.approvals import Outcome
@@ -64,6 +64,7 @@ class ConsoleApi:
                 "calls": len(today),
                 "denied": sum(1 for e in today if e["event"].get("decision") == "deny"),
                 "asked": sum(1 for e in today if e["event"].get("decision") == "ask"),
+                "bytes": sum(int(e["event"].get("output_bytes") or 0) for e in today),
             },
             "audit": self.runtime.audit.verify().summary,
             "audit_intact": self.runtime.audit.verify().intact,
@@ -231,6 +232,34 @@ class ConsoleApi:
             )
             if len(rows) >= limit:
                 break
+        return rows
+
+    def context_usage(self, days: int = 1) -> list[dict]:
+        """How much each tool has sent back into conversations.
+
+        The project's whole premise is that this stays small, and a premise
+        nobody measures is a hope. Reading it by tool is what makes it
+        actionable: one tool returning most of the budget is a tool to give a
+        narrower default.
+        """
+        days = max(1, min(int(days), 30))
+        cutoff = (now() - timedelta(days=days - 1)).date().isoformat()
+
+        totals: dict[str, dict[str, int]] = {}
+        for entry in self.runtime.audit.tail(5000):
+            if str(entry.get("ts", "")) < cutoff:
+                continue
+            event = entry["event"]
+            tool = str(event.get("tool") or "-")
+            row = totals.setdefault(tool, {"calls": 0, "bytes": 0})
+            row["calls"] += 1
+            row["bytes"] += int(event.get("output_bytes") or 0)
+
+        rows = [
+            {"tool": tool, "calls": row["calls"], "bytes": row["bytes"]}
+            for tool, row in totals.items()
+        ]
+        rows.sort(key=lambda row: row["bytes"], reverse=True)
         return rows
 
     # -- changes -----------------------------------------------------------

@@ -83,7 +83,32 @@ PKCE → token → refresh rotation) และหน้า consent ถูก ren
 | O2 | ลงทะเบียน connector ใน ChatGPT Developer mode แล้ว OAuth ผ่านจริง | |
 | O3 | ปิดแล้วเปิด server ใหม่ → ChatGPT ยังต่อได้โดยไม่ต้อง pair ใหม่ | |
 
-## 7. M0 spike — ยังค้างอยู่
+## 7. Delegate (`codex_run`) — ยืนยันแล้วบางส่วน
+
+ทดสอบด้วย agent จำลองแล้ว (task ไม่กลายเป็นคำสั่ง, timeout, binary หาย, output cap)
+สิ่งที่ต้องลองกับ CLI จริง:
+
+| # | สิ่งที่ต้องยืนยัน | ผล |
+|---|---|---|
+| D1 | `codex exec {task}` — flag ถูกต้องกับ Codex CLI เวอร์ชันจริงไหม | |
+| D2 | `claude -p {task}` — ทำงานแบบ headless ได้จริง ไม่ค้างรอ input | |
+| D3 | delegate ที่ต้องขออนุญาตกลางทาง → ค้างหรือ timeout? (ควรตั้ง permission ของ CLI นั้นเอง) | |
+
+> ค่า default ในโค้ดเป็น **การเดา flag** ไม่ใช่คำสัญญา — คำสั่งเต็มจะขึ้นในหน้าต่าง
+> ขออนุมัติทุกครั้ง ถ้าผิดจะเห็นและแก้ได้ที่ `[workspace.delegates]`
+
+## 8. Executable — ยืนยันแล้วบน Linux ✅ / รอ CI สำหรับ Windows
+
+build บน Linux สำเร็จและรันผ่านทุกคำสั่ง (25 MB, ไฟล์เดียว) — Windows build
+รันใน CI ทุก push พร้อม smoke test
+
+| # | สิ่งที่ต้องยืนยัน | ผล |
+|---|---|---|
+| E1 | `ph.exe` รันบน Windows ที่**ไม่มี Python ติดตั้ง** | |
+| E2 | SmartScreen เตือนหรือไม่ (ยังไม่ได้เซ็นโค้ด) | |
+| E3 | `ph.exe serve --http --tunnel` ทำงานครบจากไฟล์เดียว | |
+
+## 9. M0 spike — ยังค้างอยู่
 
 ดู [M0-SPIKE.md](M0-SPIKE.md) §7 ตารางการทดลอง (OQ-1 ถึง OQ-4)
 

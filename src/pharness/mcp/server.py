@@ -543,6 +543,52 @@ def build_server(
                 lambda: runtime.web().fetch(url),
             )
 
+    @server.tool(
+        name="codex_run",
+        description=(
+            "Hand a task to another coding agent installed on this machine (Codex CLI, "
+            "Claude Code) and read back what it did. Use it for long or repetitive work: "
+            "the delegate does it locally instead of it filling this conversation. "
+            "op='list' shows which delegates are available. The delegate runs with its "
+            "own permissions -- nothing it does is checked by the rules that apply here, "
+            "so describe the task precisely and narrowly."
+        ),
+        annotations=ToolAnnotations(
+            title="Delegate to a local agent",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        ),
+    )
+    @reported
+    def codex_run_tool(
+        ctx: Context,
+        task: str = "",
+        delegate: str = "codex",
+        op: str = "run",
+        timeout_sec: float = 900.0,
+        workspace: str | None = None,
+    ) -> str:
+        chosen = resolve(ctx, workspace)
+        tools = runtime.delegate(chosen)
+
+        if op == "list":
+            return guarded(ctx, "codex_run", "list", Tier.READ, {}, chosen, tools.describe)
+
+        # Always EXEC_OTHER, never allowlistable: a delegate is an agent whose
+        # actions this engine never sees (PRD 8.3). The approval prompt carries
+        # the whole task because that is the last point anyone here decides
+        # anything about it.
+        return guarded(
+            ctx,
+            "codex_run",
+            "run",
+            Tier.EXEC_OTHER,
+            {"delegate": delegate, "task": task},
+            chosen,
+            lambda: tools.run(delegate, task, timeout_sec),
+        )
+
     # -- meta ----------------------------------------------------------------
 
     @server.tool(

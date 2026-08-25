@@ -254,3 +254,63 @@ def test_the_page_is_self_contained(scene):
     assert "<script" in page and "</script>" in page
     assert "http://" not in page.split("<script>")[0].replace("http://127.0.0.1", "")
     assert json.dumps  # keeps the import honest
+
+
+# -- the context meter ---------------------------------------------------------
+
+
+def test_what_each_tool_sends_back_is_counted(scene, client):
+    """The project's premise is that this number stays small.
+
+    A premise nobody measures is a hope, so the gateway records the size of
+    every result and the console adds it up (PRD 11).
+    """
+    runtime, *_ = scene
+    workspace = runtime.registry.get("shop")
+
+    runtime.gateway.call(
+        Request(
+            "chat", "shell", None, Tier.EXEC_OTHER, {"command": "echo allowed"}, "echo allowed"
+        ),
+        workspace,
+        lambda: runtime.shell(workspace).exec("echo allowed", 5),
+    )
+
+    status = client.get("/api/status").json()
+    assert status["today"]["bytes"] > 0
+
+    [row] = [r for r in client.get("/api/context-usage").json() if r["tool"] == "shell"]
+    assert row["calls"] == 1
+    assert row["bytes"] == status["today"]["bytes"]
+
+
+def test_usage_is_ordered_by_what_costs_most(scene, client):
+    """Reading it by tool is what makes it actionable."""
+    runtime, *_ = scene
+    workspace = runtime.registry.get("shop")
+
+    runtime.gateway.call(
+        Request("chat", "read_file", None, Tier.READ, {"path": "src/app.ts"}),
+        workspace,
+        lambda: runtime.files(workspace).read("src/app.ts"),
+    )
+    runtime.gateway.call(
+        Request("chat", "search", "text", Tier.READ, {"pattern": "nothing-matches-this"}),
+        workspace,
+        lambda: runtime.search(workspace).text("nothing-matches-this"),
+    )
+
+    rows = client.get("/api/context-usage").json()
+    assert [row["bytes"] for row in rows] == sorted((row["bytes"] for row in rows), reverse=True)
+
+
+def test_a_refused_call_returns_almost_nothing(scene, client):
+    """Which is the point: refusals are cheap, and the meter should show that."""
+    runtime, *_ = scene
+    workspace = runtime.registry.get("shop")
+    runtime.gateway.call(
+        Request("chat", "shell", None, Tier.EXEC_OTHER, {"command": "rm -rf /"}, "rm -rf /"),
+        workspace,
+        lambda: None,
+    )
+    assert client.get("/api/status").json()["today"]["bytes"] == 0

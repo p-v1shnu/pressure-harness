@@ -140,8 +140,14 @@ function outcomeClass(r) {
   return esc(r.decision);
 }
 
+function humanBytes(n) {
+  if (n < 1024) return n + " B";
+  if (n < 1024 * 1024) return (n / 1024).toFixed(1) + " KB";
+  return (n / 1024 / 1024).toFixed(1) + " MB";
+}
+
 async function drawOverview() {
-  const s = await get("/api/status");
+  const [s, usage] = await Promise.all([get("/api/status"), get("/api/context-usage")]);
   document.getElementById("platform").textContent =
     s.platform + (s.supported ? "" : " · unsupported");
   const elevated = s.elevated.map(e =>
@@ -156,7 +162,7 @@ async function drawOverview() {
       <div class="tile"><b>${s.today.calls}</b><span>tool calls today</span></div>
       <div class="tile"><b class="${s.pending?'ask':''}">${s.pending}</b><span>waiting for you</span></div>
       <div class="tile"><b class="${s.today.denied?'deny':''}">${s.today.denied}</b><span>refused today</span></div>
-      <div class="tile"><b>${s.processes}</b><span>running processes</span></div>
+      <div class="tile"><b>${humanBytes(s.today.bytes)}</b><span>sent into chats today</span></div>
      </div>` + elevated +
     `<div class="card"><div class="row"><span>Approval prompts</span>
        <span class="pill">${esc(s.notifier)}${s.can_prompt ? "" : " · cannot ask"}</span></div>
@@ -164,6 +170,14 @@ async function drawOverview() {
          Nothing here can ask you a question, so anything needing approval is refused.</p>`}</div>
      <div class="card"><div class="row"><span>Audit log</span>
        <span class="pill ${s.audit_intact?'allow':'deny'}">${esc(s.audit)}</span></div></div>` +
+    (usage.length ? `<div class="card"><b>Where the conversation's budget went today</b>
+       <p class="sub" style="margin:.2rem 0 .5rem">Everything a tool returns is re-sent with
+         every later message. One tool taking most of this is one to give a narrower default.</p>
+       <table><tr><th>Tool</th><th>Calls</th><th>Returned</th></tr>
+       ${usage.slice(0, 8).map(u => `<tr><td>${esc(u.tool)}</td><td>${u.calls}</td>
+         <td>${humanBytes(u.bytes)}</td></tr>`).join("")}</table></div>` : "") +
+    `<div class="card"><div class="row"><span>Running processes</span>
+       <span class="pill">${s.processes}</span></div></div>` +
     (s.warnings.length ? `<div class="card warn-box"><b>Worth narrowing</b>
        <ul>${s.warnings.map(w=>`<li>${esc(w)}</li>`).join("")}</ul></div>` : "");
 }

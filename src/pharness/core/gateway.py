@@ -110,6 +110,9 @@ class Gateway:
             raise
 
         duration = (self.clock() - started).total_seconds()
+        # Every byte here is pasted into the conversation and re-sent with every
+        # later message. Counting it is the only way to know whether the quota
+        # this project exists to protect is actually being protected (PRD 11).
         self._record(
             request,
             workspace,
@@ -117,6 +120,7 @@ class Gateway:
             "ran" if result.ok else "failed",
             result.text[:200],
             duration_sec=round(duration, 3),
+            output_bytes=len(result.text.encode("utf-8")),
         )
         return result
 
