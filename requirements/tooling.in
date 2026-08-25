@@ -2,4 +2,4 @@
 # dependency tree does not become part of what is being scanned.
 uv>=0.5
 pip-audit>=2.7
-cyclonedx-bom>=4.4
+cyclonedx-bom>=7.3.1
