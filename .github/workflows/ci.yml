@@ -24,9 +24,21 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
+      # Six jobs a push was expensive enough to be a problem: macOS runners bill
+      # at ten times a Linux minute and Windows at twice, and Dependabot now
+      # opens several pull requests a week that each run the lot. Both Python
+      # versions on Linux, where the difference between them actually shows up,
+      # and one each on the platforms that cost.
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-        python: ["3.11", "3.12"]
+        include:
+          - os: ubuntu-latest
+            python: "3.11"
+          - os: ubuntu-latest
+            python: "3.12"
+          - os: windows-latest
+            python: "3.11"
+          - os: macos-latest
+            python: "3.11"
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 

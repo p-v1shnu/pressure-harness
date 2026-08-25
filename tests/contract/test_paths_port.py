@@ -8,7 +8,7 @@ payoff for keeping the adapters pure.
 
 from __future__ import annotations
 
-from pathlib import Path, PureWindowsPath
+from pathlib import Path, PurePosixPath, PureWindowsPath
 
 import pytest
 
@@ -131,8 +131,10 @@ def test_windows_flags_over_broad_workspaces(candidate: str, expected: str | Non
     ],
 )
 def test_posix_flags_over_broad_workspaces(candidate: str, expected: str | None):
+    """PurePosixPath, not Path: on Windows the latter turns /home/dev into
+    \\home\\dev, and the adapter under test is the POSIX one either way."""
     paths = PosixPaths(environ={"HOME": "/home/dev"}, home="/home/dev")
-    reason = paths.broad_scope_reason(Path(candidate))
+    reason = paths.broad_scope_reason(PurePosixPath(candidate))
     if expected is None:
         assert reason is None
     else:

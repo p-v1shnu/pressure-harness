@@ -167,11 +167,13 @@ def test_a_waiting_request_can_be_answered_from_the_console(scene, client):
         daemon=True,
     ).start()
 
-    deadline = time.monotonic() + 5
+    deadline = time.monotonic() + 20
     while not client.get("/api/pending").json() and time.monotonic() < deadline:
         time.sleep(0.05)
 
-    [pending] = client.get("/api/pending").json()
+    waiting = client.get("/api/pending").json()
+    assert waiting, "the request never reached the queue"
+    [pending] = waiting
     assert "echo later" in pending["payload"]  # the literal request, not a summary
 
     result = client.post(
@@ -179,7 +181,7 @@ def test_a_waiting_request_can_be_answered_from_the_console(scene, client):
     ).json()
     assert result["ok"]
 
-    deadline = time.monotonic() + 5
+    deadline = time.monotonic() + 20
     while not answers and time.monotonic() < deadline:
         time.sleep(0.05)
     assert answers and answers[0].ok

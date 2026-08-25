@@ -99,19 +99,35 @@ def test_spawn_tail_and_stop(process, env, tmp_path: Path):
 def test_stopping_kills_the_whole_tree(process, env, tmp_path: Path):
     """Killing only the named process leaves the dev server running and the port bound."""
     marker = tmp_path / "grandchild-alive.txt"
-    parent_code = (
-        "import subprocess, sys, time\n"
-        f"child = subprocess.Popen([sys.executable, '-c', "
-        f"\"import time\\nwhile True:\\n    open({str(marker)!r}, 'a').write('x')\\n"
-        f'    time.sleep(0.05)"])\n'
-        "while True: time.sleep(0.05)\n"
-    )
-    handle = process.spawn([sys.executable, "-c", parent_code], tmp_path, env)
 
-    deadline = time.monotonic() + 5
+    # Written as files rather than as -c strings. Three levels of quoting inside
+    # one command line is fragile everywhere and was simply wrong on Windows,
+    # where the grandchild never started and the test read that as a pass for
+    # the wrong reason.
+    grandchild = tmp_path / "grandchild.py"
+    grandchild.write_text(
+        "import time\n"
+        f"target = {str(marker)!r}\n"
+        "while True:\n"
+        "    open(target, 'a').write('x')\n"
+        "    time.sleep(0.05)\n",
+        encoding="utf-8",
+    )
+    parent = tmp_path / "parent.py"
+    parent.write_text(
+        "import subprocess, sys, time\n"
+        f"subprocess.Popen([sys.executable, {str(grandchild)!r}])\n"
+        "while True:\n"
+        "    time.sleep(0.05)\n",
+        encoding="utf-8",
+    )
+
+    handle = process.spawn([sys.executable, str(parent)], tmp_path, env)
+
+    deadline = time.monotonic() + 20  # a cold Windows runner starts Python slowly
     while not marker.exists() and time.monotonic() < deadline:
         time.sleep(0.05)
-    assert marker.exists(), "grandchild never started"
+    assert marker.exists(), f"grandchild never started; parent said: {handle.tail(20)}"
 
     handle.stop(timeout_sec=3)
     time.sleep(0.3)

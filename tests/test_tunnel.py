@@ -49,6 +49,11 @@ def fake_bin(tmp_path: Path):
 @pytest.fixture
 def manager(tmp_path: Path, fake_bin):
     adapters = select()
+    if not adapters.capabilities:
+        # macOS has no process adapter until M9, and asking for one raises
+        # rather than returning something half-working. The same guard is in
+        # the process suite; this one was missing it.
+        pytest.skip(f"no process adapter for {adapters.platform}")
     env = build_env(
         os.environ,
         adapters.platform,
