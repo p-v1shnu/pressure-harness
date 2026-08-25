@@ -77,9 +77,11 @@ hash บอกว่า*ได้อะไรมา* ซึ่งเป็นส
 - **executable ยังไม่ได้เซ็นโค้ด** — เป็นเรื่องต้นทุน ($100-400/ปี สำหรับ Windows,
   $99/ปี สำหรับ macOS) SHA256 ทดแทนได้บางส่วน: บอกได้ว่าไฟล์ตรงกับที่ CI สร้าง
   แต่บอกไม่ได้ว่า CI นั้นคือของเรา
-- **GitHub Action ยัง pin ที่ tag ไม่ใช่ commit SHA** — `actions/checkout@v4` เป็น tag
-  ที่ย้ายได้ ถือเป็นช่องทาง supply chain เหมือนกัน แก้ได้โดย pin เป็น SHA
-  (ผมทำในเซสชันนี้ไม่ได้เพราะ repo scope ของผมเข้าถึง repo อื่นไม่ได้เพื่อดู SHA จริง)
+- ~~GitHub Action pin ที่ tag~~ — **แก้แล้ว** ทั้ง 12 จุด pin เป็น commit SHA
+  (resolve จาก repo ต้นทางโดยตรง และยืนยันว่าเป็น lightweight tag จึงเป็น commit SHA
+  ไม่ใช่ tag object) พร้อม comment บอกเวอร์ชันไว้ให้คนอ่าน
+  และมี **Dependabot** คอยเปิด PR เมื่อ pin ล้าสมัย — เพราะ pin เฉยๆ
+  ก็หยุดการรับ security fix ไปด้วย "pinned and forgotten" คือความเสี่ยงอีกแบบหนึ่ง
 
 ## LLM04 · Data and Model Poisoning — ⚪ ไม่เกี่ยว
 

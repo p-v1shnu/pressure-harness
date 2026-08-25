@@ -1,0 +1,25 @@
+# Pinning to a SHA stops a publisher moving the ground under us. On its own it
+# also stops security fixes arriving, which is why this file exists: Dependabot
+# raises a pull request when a pin falls behind, and CI decides whether the new
+# one is good. Pinned and current, rather than pinned and forgotten.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "ci"
+
+  # The lock files. Grouped so one PR carries a coherent set rather than
+  # thirty that each re-resolve the tree.
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "deps"
+    groups:
+      runtime:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]

@@ -51,6 +51,10 @@ CI installs with `--require-hashes`, checks the locks still match
 a CycloneDX SBOM built from the lock rather than from an installed environment,
 so the same commit always yields the same inventory.
 
+CI actions are pinned to commit SHAs rather than tags, since a tag is a label
+its publisher can move, and Dependabot raises a pull request when a pin falls
+behind so that pinning does not turn into staleness.
+
 Released executables carry a SHA256 so you can check the file you have is the
 file CI produced. They are not code-signed yet, which is a cost decision, not a
 technicality: a checksum proves the file was not altered in transit, a signature
