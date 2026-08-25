@@ -47,6 +47,18 @@ cd packaging && pyinstaller --clean --noconfirm pharness.spec
 
 The result is one file with no Python needed on the target machine.
 
+## Dependencies
+
+Locked with hashes in `requirements/`. After changing `pyproject.toml`:
+
+```
+pip install pip-tools
+./requirements/lock.sh
+```
+
+CI installs with `--require-hashes`, fails if the locks drift from
+`pyproject.toml`, runs `pip-audit`, and publishes an SBOM.
+
 ## Development
 
 ```

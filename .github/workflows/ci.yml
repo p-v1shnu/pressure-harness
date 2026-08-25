@@ -30,8 +30,13 @@ jobs:
           python-version: ${{ matrix.python }}
           cache: pip
 
+      # Installed from the lock, with hashes: a pinned version says which
+      # release was asked for, a hash says which bytes arrived.
       - name: Install
-        run: python -m pip install --upgrade pip && python -m pip install -e ".[dev]"
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --require-hashes -r requirements/dev.lock
+          python -m pip install --no-deps -e .
 
       - name: Tests
         run: python -m pytest tests -q --cov=pharness.core --cov=pharness.console --cov-report=term-missing --cov-fail-under=80
@@ -48,7 +53,10 @@ jobs:
           cache: pip
 
       - name: Install
-        run: python -m pip install --upgrade pip && python -m pip install -e ".[dev]"
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --require-hashes -r requirements/dev.lock
+          python -m pip install --no-deps -e .
 
       - name: Ruff
         run: ruff check src tests spike && ruff format --check src tests spike
@@ -58,6 +66,50 @@ jobs:
       # months later when the macOS adapter is written (PRD 14.2).
       - name: Import boundaries
         run: lint-imports
+
+  # A security tool that ignores its own dependencies is theatre. This job is
+  # allowed to fail the build.
+  supply-chain:
+    name: dependencies
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install tooling
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --require-hashes -r requirements/tooling.lock
+
+      # Catches a pyproject edit that never made it into the locks. Without
+      # this, the lock quietly stops describing what the project needs.
+      - name: Locks match pyproject
+        run: |
+          ./requirements/lock.sh
+          git diff --exit-code requirements/ \
+            || (echo "::error::the lock files are out of date; run requirements/lock.sh" && exit 1)
+
+      - name: Known vulnerabilities
+        run: |
+          pip-audit -r requirements/runtime.lock --progress-spinner off
+          pip-audit -r requirements/dev.lock --progress-spinner off
+
+      # Generated from the lock rather than from an installed environment, so
+      # the same commit always produces the same inventory.
+      - name: Bill of materials
+        run: |
+          mkdir -p sbom
+          cyclonedx-py requirements requirements/runtime.lock -o sbom/pharness-runtime.cdx.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: sbom/
+          if-no-files-found: error
 
   spike:
     name: m0 spike self-test
@@ -84,6 +136,7 @@ jobs:
   build:
     name: executable / ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
+    needs: [supply-chain]
     strategy:
       fail-fast: false
       matrix:
@@ -99,7 +152,9 @@ jobs:
       - name: Install
         run: |
           python -m pip install --upgrade pip
-          python -m pip install . pyinstaller
+          python -m pip install --require-hashes -r requirements/runtime.lock
+          python -m pip install --require-hashes -r requirements/packaging.lock
+          python -m pip install --no-deps .
 
       - name: Build
         working-directory: packaging
@@ -128,11 +183,22 @@ jobs:
           $verdict = .\ph.exe check -- docker compose down -v | Out-String
           if ($verdict -notmatch "DENY") { throw "the frozen build did not carry the policy" }
 
+      # Not a signature -- that costs money and is still to come (PRD 17) -- but
+      # it lets someone check that the file they downloaded is the file CI
+      # produced, which is the part that costs nothing.
+      - name: Checksums
+        working-directory: packaging/dist
+        shell: bash
+        run: |
+          if [ -f ph.exe ]; then sha256sum ph.exe > SHA256SUMS; else sha256sum ph > SHA256SUMS; fi
+          cat SHA256SUMS
+
       - uses: actions/upload-artifact@v4
         with:
           name: ph-${{ matrix.os }}
           path: |
             packaging/dist/ph
             packaging/dist/ph.exe
+            packaging/dist/SHA256SUMS
           if-no-files-found: error
           retention-days: 14

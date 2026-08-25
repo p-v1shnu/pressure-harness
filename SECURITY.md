@@ -43,6 +43,19 @@ Anything that lets an attacker reach past the boundaries below:
 | Console (loopback + token) | anything off the machine | another process running as the same user |
 | Redaction | known credential shapes on the way out | an unknown secret format; the jail is the real defence |
 
+## Dependencies
+
+Locked to exact versions and to the hash of each file, in `requirements/*.lock`.
+CI installs with `--require-hashes`, checks the locks still match
+`pyproject.toml`, runs `pip-audit` against runtime and dev trees, and publishes
+a CycloneDX SBOM built from the lock rather than from an installed environment,
+so the same commit always yields the same inventory.
+
+Released executables carry a SHA256 so you can check the file you have is the
+file CI produced. They are not code-signed yet, which is a cost decision, not a
+technicality: a checksum proves the file was not altered in transit, a signature
+would prove who built it.
+
 ## Deliberate design decisions
 
 - **HTTP always requires OAuth.** There is no flag to disable it. For an
