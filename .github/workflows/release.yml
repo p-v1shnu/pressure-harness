@@ -1,0 +1,180 @@
+name: release
+
+# Tag a version and this publishes the binaries. Artifacts from `ci` need a
+# GitHub login and expire after fourteen days, which is no way to hand something
+# to a person; a release is a permanent link anyone can open.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  # The tag and the package must agree. Otherwise `ph --version` reports one
+  # thing and the download page says another, and whoever is debugging a report
+  # six months from now has to work out which one lied.
+  check-version:
+    name: tag matches the package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.11"
+
+      - name: Compare
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          declared=$(python -c "import tomllib,pathlib; \
+            print(tomllib.loads(pathlib.Path('pyproject.toml').read_text())['project']['version'])")
+          echo "tag=$tag  pyproject=$declared"
+          if [ "$tag" != "$declared" ]; then
+            echo "::error::tag $GITHUB_REF_NAME does not match version $declared in pyproject.toml"
+            exit 1
+          fi
+
+  build:
+    name: build / ${{ matrix.os }}
+    needs: [check-version]
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - os: windows-latest
+            asset: ph-windows-x64.exe
+            binary: ph.exe
+          - os: ubuntu-latest
+            asset: ph-linux-x64
+            binary: ph
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --require-hashes -r requirements/runtime.lock
+          python -m pip install --require-hashes -r requirements/packaging.lock
+          python -m pip install --no-deps .
+
+      - name: Build
+        working-directory: packaging
+        run: pyinstaller --clean --noconfirm --distpath ./dist --workpath ./build pharness.spec
+
+      # Same reasoning as CI: a build that finishes proves nothing, because a
+      # missing import only appears when the thing runs.
+      - name: Smoke test
+        working-directory: packaging/dist
+        shell: bash
+        run: |
+          ./${{ matrix.binary }} --help
+          ./${{ matrix.binary }} doctor
+          ./${{ matrix.binary }} check -- docker compose down -v | grep -q DENY
+
+      - name: Name and checksum it
+        working-directory: packaging/dist
+        shell: bash
+        run: |
+          mv ${{ matrix.binary }} ${{ matrix.asset }}
+          sha256sum ${{ matrix.asset }} > ${{ matrix.asset }}.sha256
+          cat ${{ matrix.asset }}.sha256
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ${{ matrix.asset }}
+          path: packaging/dist/${{ matrix.asset }}*
+          if-no-files-found: error
+
+  publish:
+    name: publish the release
+    needs: [build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.11"
+
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          path: assets
+          merge-multiple: true
+
+      # Ships with the release so anyone can see what is inside the binary they
+      # were handed, without taking our word for it.
+      - name: Bill of materials
+        run: |
+          python -m pip install --require-hashes -r requirements/tooling.lock
+          cyclonedx-py requirements requirements/runtime.lock \
+            -o assets/pharness-${{ github.ref_name }}.cdx.json
+
+      - name: One checksum file
+        working-directory: assets
+        run: |
+          cat *.sha256 > SHA256SUMS
+          rm -f *.sha256
+          cat SHA256SUMS
+
+      - name: Release notes
+        run: |
+          cat > notes.md <<'NOTES'
+          ## Downloads
+
+          | File | For |
+          |---|---|
+          | `ph-windows-x64.exe` | Windows, no Python needed |
+          | `ph-linux-x64` | Linux, no Python needed |
+          | `SHA256SUMS` | checksums for both |
+          | `*.cdx.json` | what is inside the build (CycloneDX SBOM) |
+
+          ## Check what you downloaded
+
+          The checksums live on this page rather than travelling with the file,
+          which is the point: if someone hands you a copy through a chat, compare
+          it against what is written here.
+
+          Windows:
+
+          ```powershell
+          Get-FileHash .\ph-windows-x64.exe -Algorithm SHA256
+          ```
+
+          Linux:
+
+          ```bash
+          sha256sum -c SHA256SUMS
+          ```
+
+          ## Windows will warn you, and that is expected
+
+          These builds are not code-signed, so SmartScreen shows
+          "Windows protected your PC". Click **More info → Run anyway**.
+
+          Worth saying plainly: getting used to clicking past that warning is a
+          habit worth keeping narrow. Check the checksum above the first time,
+          and treat a copy that reaches you any other way with suspicion.
+
+          See [SECURITY.md](https://github.com/${{ github.repository }}/blob/${{ github.sha }}/SECURITY.md)
+          for what this software does and does not protect.
+          NOTES
+
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        # `gh` is already on the runner. Reaching for a third-party action to do
+        # what a built-in command does would add a supply-chain dependency to
+        # the very step that publishes the artifact.
+        run: |
+          gh release create "${{ github.ref_name }}" \
+            --title "${{ github.ref_name }}" \
+            --notes-file notes.md \
+            --verify-tag \
+            assets/*

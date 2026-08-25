@@ -37,8 +37,18 @@ reasoning, and the milestone plan.
 
 ## Installing
 
-CI builds a single-file executable for Windows and Linux on every push, smoke
-tests it, and uploads it as an artifact. To build one yourself:
+Released builds are on the [releases page](../../releases): one file for Windows
+and one for Linux, neither needing Python on the machine that runs it. Check the
+downloaded file against the `SHA256SUMS` published beside it — the checksums live
+on the release page rather than travelling with the file, which is what makes
+comparing them worth anything.
+
+The builds are not code-signed, so Windows shows a SmartScreen warning. See
+[SECURITY.md](SECURITY.md) for why, and [docs/RELEASING.md](docs/RELEASING.md)
+for cutting a release.
+
+CI also builds on every push and smoke tests the result, though those artifacts
+need a login and expire. To build one yourself:
 
 ```
 python -m pip install . pyinstaller
